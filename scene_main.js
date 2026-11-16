@@ -79,11 +79,11 @@ function landscape({ THREE, scene, B, QUAY, addSolid, MAXA, rng }, L) {
   };
   const rampX = L.site.ramps.map((r) => r.c[0][0]);                              // 坡道起點的 x：花台要讓開
   for (const [a, b] of [[-214, -180], [-172, -138], [-130, -96], [-42, -24], [-4, 30], [38, 72], [80, 114], [122, 156], [164, 214]]) {
-    if (rampX.some((x) => x > a - 5 && x < b + 5)) continue;
+    if (rampX.some((x) => x > a - 9 && x < b + 9) || b > L.site.prom_south[2] - 4) continue;      // 讓開坡道起點；超出岸邊範圍的不做
     const tr = []; for (let x = a + 5; x <= b - 5; x += 12) tr.push([x, -157]);
     rectBed(a, -160, b, -154, QUAY, 'lawn', tr, 'A', Math.round((b - a) / 3.2), 'N');
   }
-  for (let x = -204; x <= 204; x += 24) { out.treesB.push(B(x, -187, QUAY)); out.grates.push(B(x, -187, QUAY)); }
+  for (let x = -204; x <= L.site.prom_south[2] + 8; x += 24) { out.treesB.push(B(x, -187, QUAY)); out.grates.push(B(x, -187, QUAY)); }
   for (const [a, b] of [[-130, -96], [-88, -54], [-46, -12], [-4, 30], [38, 72], [80, 114], [122, 156], [164, 198], [206, 240], [248, 290]]) {
     const tr = []; for (let y = a + 5; y <= b - 5; y += 12) tr.push([160, y]);
     rectBed(157, a, 163, b, QUAY, 'lawn', tr, 'B', Math.round((b - a) / 3.4), 'W');
@@ -433,8 +433,8 @@ function people(ctx, L, H) {
   const tc = hp('N', 0.27, 0), ta = H.ang('N', 0.27), tdir = [Math.cos(ta), Math.sin(ta)];
   const PATHS = [                                              // [路線點, 人數]
     [[[-205, -170], [205, -170]], 6], [[[205, -178], [-205, -178]], 6], [[[-205, -147], [-100, -147]], 3], [[[10, -147], [205, -147]], 4],
-    [[...rp[1], inward(D.C_south, 'C', 0.43, -0.5), D.C_south, inward(D.C_south, 'C', 0.43, 0.35), hp('C', 0.36, -0.1), hp('C', 0.3, -0.6), hp('C', 0.18, 0), hp('C', 0.3, 0.6), hp('C', 0.42, 0.35)], 9],
-    [[...rp[0], [-34, -52], inward(D.C_south, 'C', 0.43, -0.9)], 5], [[...rp[2], [-8, -50], inward(D.C_south, 'C', 0.43, -0.8)], 5],
+    [[...rp[0], inward(D.C_south, 'C', 0.43, -0.5), D.C_south, inward(D.C_south, 'C', 0.43, 0.35), hp('C', 0.36, -0.1), hp('C', 0.3, -0.6), hp('C', 0.18, 0), hp('C', 0.3, 0.6), hp('C', 0.42, 0.35)], 9],
+    [[...rp[1], [-8, -54], inward(D.C_south, 'C', 0.43, -0.8)], 5],
     [[inward(D.C_south, 'C', 0.43, 0.4), hp('C', 0.52, -0.1), hp('C', 0.62, 0.2), hp('C', 0.74, -0.1), hp('C', 0.86, 0.1)], 6],
     [[hp('C', 0.5, 0.2), inward(D.C_north, 'C', 0.55, 0.3), D.C_north, D.N_south, inward(D.N_south, 'N', 0.5, 0.4), hp('N', 0.6, -0.2), hp('N', 0.72, -0.5), hp('N', 0.86, 0)], 8],
     [[hp('N', 0.5, -0.2), [tc[0] + tdir[0] * 20, tc[1] + tdir[1] * 20], [tc[0] - tdir[0] * 20, tc[1] - tdir[1] * 20], hp('N', 0.1, 0)], 6],

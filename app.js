@@ -292,7 +292,10 @@ document.querySelectorAll('[data-time]').forEach((b) => b.onclick = () => { b.bl
 const walkables = [], solids = [], colliders = solids, solidSet = new Set();
 function addSolid(o) {                                     // 登記成不能穿過的實體，並建立碰撞加速結構
   if (solidSet.has(o)) return; solidSet.add(o);
-  if (!o.geometry.boundsTree) o.geometry.computeBoundsTree();
+  if (!o.geometry.boundsTree) {
+    if (o.geometry.index) o.geometry.setIndex(o.geometry.index.clone());   // 模型檔裡形狀相同的構件共用同一份索引；加速結構會就地重排索引，不先複製會把別的構件的加速結構弄壞
+    o.geometry.computeBoundsTree();
+  }
   solids.push(o);
 }
 function planarUV(geo, s) {                               // 地面類：依世界座標平鋪
@@ -332,7 +335,7 @@ function buildCity(src, group) {
   }
 }
 async function loadMain() {
-  const g = await new GLTFLoader().loadAsync('./models/conch.glb?v=20261116-1506');
+  const g = await new GLTFLoader().loadAsync('./models/conch.glb?v=20261116-1518');
   const city = [];
   g.scene.updateMatrixWorld(true);
   g.scene.traverse((o) => {
@@ -359,7 +362,7 @@ async function loadMain() {
 
 // 圓天窗：玻璃罩＋收邊環（實例化）
 async function loadSkylights() {
-  const j = await (await fetch('./models/skylights.json?v=20261116-1506')).json();
+  const j = await (await fetch('./models/skylights.json?v=20261116-1518')).json();
   const all = Object.values(j.shells).flat();
   const cap = new THREE.SphereGeometry(1, 20, 6, 0, Math.PI * 2, 0, Math.PI * 0.44);
   cap.translate(0, -Math.cos(Math.PI * 0.44), 0); cap.scale(1 / Math.sin(Math.PI * 0.44), 1 / (1 - Math.cos(Math.PI * 0.44)), 1 / Math.sin(Math.PI * 0.44));   // 底圓半徑 1、高 1
@@ -393,8 +396,8 @@ function addLogoText() {
 // 路燈與矮燈（夜間發光、地面光暈）
 function addLamps() {
   const tall = [], low = [], S = layout.site, rampX = S.ramps.map((r) => r.c[0][0]);
-  for (let x = -214; x <= 214; x += 28) if (!rampX.some((rx) => Math.abs(rx - x) < 9)) tall.push(B(x, -143, QUAY));   // 西南岸邊，坡道起點讓開
-  for (let y = -126; y <= 290; y += 28) tall.push(B(137, y, QUAY));                                                    // 東側步道
+  for (let x = -214; x <= S.prom_south[2] - 8; x += 28) if (!rampX.some((rx) => Math.abs(rx - x) < 11)) tall.push(B(x, -143, QUAY));   // 西南岸邊，坡道起點讓開
+  for (let y = -196; y <= 290; y += 28) tall.push(B(137, y, QUAY));                                                    // 東側步道
   for (let x = -130; x <= 118; x += 27) tall.push(B(x, 140.5, QUAY));                                                 // 平台北緣
   for (let y = -40; y <= 130; y += 28) tall.push(B(-135.5, y, QUAY));                                                 // 平台西緣
   for (const r of S.ramps) for (let i = 2; i < r.c.length - 1; i += 3) {                                              // 三條坡道兩側的矮燈
@@ -432,7 +435,7 @@ const VIEWS = {   // three 座標：x 東、y 上、z 南
 const RADIUS = 0.6, FLY = 14, WALK = 3.5, BOOST = 3;
 const keys = {};
 let mode = 'fly';
-const WALK_START = { p: [-50, QUAY + EYE, 152], t: [-22, 8, 58] };   // 第二條坡道起點
+const WALK_START = { p: [-86, QUAY + EYE, 150], t: [-26, 8, 58] };   // 主坡道起點
 const eul = new THREE.Euler(0, 0, 0, 'YXZ');
 const help = $('help'), tip = $('walkTip');
 const HELP = {
@@ -575,10 +578,10 @@ const ctx = { VIEWS, THREE, scene, camera, renderer, B, QUAY, M, GLOW, glowReg, 
 // ───────── 啟動 ─────────
 async function start() {
   try { skyInfo = await (await fetch('./assets/sky/sky_info.json')).json(); } catch (_) { skyInfo = null; }
-  layout = ctx.layout = await (await fetch('./models/layout.json?v=20261116-1506')).json();
+  layout = ctx.layout = await (await fetch('./models/layout.json?v=20261116-1518')).json();
   await Promise.all([loadMain(), loadSkylights(), loadSky('day')]);
   addLogoText(); addLamps();
-  try { const ex = await import('./scene_main.js?v=20261116-1506'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
+  try { const ex = await import('./scene_main.js?v=20261116-1518'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
   applyTime('day'); setMode('fly'); setView('aerial');
   veil.remove();
   loadSky('dusk'); loadSky('night');                       // 背景預載

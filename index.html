@@ -19,15 +19,15 @@
     background:#eaf6fd; color:var(--ink); cursor:pointer; }
   button:hover { background:#d6ecf8; }
   button.on { background:var(--brand); border-color:var(--brand); color:#fff; }
-  #help { position:fixed; left:16px; bottom:16px; background:var(--panel); border:1px solid var(--line);
-    border-radius:10px; padding:8px 12px; font-size:13px; line-height:1.6; max-width:calc(100vw - 32px); box-sizing:border-box; }
+  #help { position:fixed; left:16px; right:240px; bottom:16px; background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; padding:8px 12px; font-size:13px; line-height:1.6; box-sizing:border-box; width:fit-content; }
   #sign { position:fixed; right:16px; bottom:16px; background:var(--panel); border:1px solid var(--line);
     border-radius:10px; padding:6px 12px; font-size:12px; text-align:right; line-height:1.5; }
   #veil { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
     background:rgba(207,224,232,.96); font-size:18px; z-index:5; text-align:center; padding:16px; }
   #walkTip { position:fixed; inset:0; display:none; align-items:center; justify-content:center; pointer-events:none; z-index:4; }
   #walkTip div { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 20px; font-size:16px; text-align:center; line-height:1.7; }
-  @media (max-width:640px){ #sign{display:none} #bar h1{font-size:17px} }
+  @media (max-width:640px){ #sign{display:none} #help{right:16px} #bar h1{font-size:17px} }
 </style>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/jsm/" } }
@@ -52,12 +52,11 @@
 </div>
 <div id="help"></div>
 <div id="sign">築匠建築師事務所　CTArch<br>設計模擬示意</div>
-<div id="walkTip"><div>點一下畫面開始步行<br>W A S D 移動、滑鼠轉頭、Shift 加速、Esc 暫停</div></div>
+<div id="walkTip"><div>W A S D（或方向鍵）移動　Shift 加速<br>按住滑鼠左鍵拖曳轉頭，或用 Q、E 左右轉<br>R 回到起點</div></div>
 
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { Water } from 'three/addons/objects/Water.js';
@@ -144,7 +143,6 @@ new GLTFLoader().load('./models/conch.glb', (g) => {
 const orbit = new OrbitControls(camera, renderer.domElement);
 orbit.enableDamping = true; orbit.dampingFactor = 0.08;
 orbit.minDistance = 25; orbit.maxDistance = 900; orbit.maxPolarAngle = THREE.MathUtils.degToRad(88);
-const look = new PointerLockControls(camera, renderer.domElement);
 
 const VIEWS = {   // three 座標：x 東、y 上、z 南
   aerial: { p: [92, 135, 190], t: [8, 6, 12] },
@@ -157,57 +155,105 @@ function setView(k) {
   if (mode !== 'orbit') setMode('orbit');
   const v = VIEWS[k]; camera.position.set(...v.p); orbit.target.set(...v.t); orbit.update();
 }
+const keys = {};
 let mode = 'orbit';
-const walkPos = new THREE.Vector3(-40, 2 + EYE, 150), walkLook = new THREE.Vector3(-20, 14, 0);
+const WALK_START = { p: [-11, 2 + EYE, 150], t: [-3, 10, 40] };   // 南側步道、正對二號人行橋與主入口
+const walkPos = new THREE.Vector3(...WALK_START.p);
+const eul = new THREE.Euler(0, 0, 0, 'YXZ');
+let walkReady = false;
 const help = document.getElementById('help'), tip = document.getElementById('walkTip');
 const HELP = {
   orbit: '環繞：左鍵拖曳旋轉、右鍵拖曳平移、滾輪縮放（手機：單指旋轉、雙指縮放平移）',
-  walk: '步行：W A S D 移動、滑鼠轉頭、Shift 加速、Esc 暫停；可走範圍為碼頭平台、人行橋與岸邊步道',
+  walk: '步行：W A S D 或方向鍵移動、Shift 加速、按住左鍵拖曳轉頭（Q、E 也可左右轉）、R 回到起點；可走範圍為碼頭平台、人行橋與岸邊步道',
 };
+function walkReset() {
+  camera.position.set(...WALK_START.p); camera.lookAt(...WALK_START.t);
+  eul.setFromQuaternion(camera.quaternion, 'YXZ'); eul.z = 0; walkPos.copy(camera.position);
+}
 function setMode(m) {
   mode = m;
   document.getElementById('mOrbit').classList.toggle('on', m === 'orbit');
   document.getElementById('mWalk').classList.toggle('on', m === 'walk');
   help.textContent = HELP[m];
+  for (const k in keys) keys[k] = false;
   if (m === 'walk') {
     orbit.enabled = false; camera.fov = 68; camera.updateProjectionMatrix();
-    camera.position.copy(walkPos); camera.lookAt(walkLook);
+    if (!walkReady) { walkReset(); walkReady = true; }
+    else { camera.position.copy(walkPos); camera.quaternion.setFromEuler(eul); }
     tip.style.display = 'flex';
   } else {
-    if (look.isLocked) look.unlock();
+    if (document.pointerLockElement) document.exitPointerLock();
     tip.style.display = 'none'; orbit.enabled = true; camera.fov = 50; camera.updateProjectionMatrix();
   }
 }
-look.addEventListener('lock', () => { tip.style.display = 'none'; });
-look.addEventListener('unlock', () => { if (mode === 'walk') tip.style.display = 'flex'; });
-renderer.domElement.addEventListener('click', () => { if (mode === 'walk' && !look.isLocked) look.lock(); });
-document.getElementById('mOrbit').onclick = () => { setMode('orbit'); setView('aerial'); };
-document.getElementById('mWalk').onclick = () => setMode('walk');
-document.querySelectorAll('[data-view]').forEach((b) => b.onclick = () => setView(b.dataset.view));
+document.getElementById('mOrbit').onclick = (e) => { e.currentTarget.blur(); setMode('orbit'); setView('aerial'); };
+document.getElementById('mWalk').onclick = (e) => { e.currentTarget.blur(); setMode('walk'); };
+document.querySelectorAll('[data-view]').forEach((b) => b.onclick = () => { b.blur(); setView(b.dataset.view); });
 
-const keys = {};
-addEventListener('keydown', (e) => { keys[e.code] = true; });
+// 轉頭：按住拖曳一定可用；連點兩下可鎖定滑鼠自由轉頭（瀏覽器不允許時維持拖曳）
+const cv = renderer.domElement;
+let dragging = false, lastX = 0, lastY = 0;
+function turn(dx, dy) {
+  eul.y -= dx * 0.0026; eul.x = THREE.MathUtils.clamp(eul.x - dy * 0.0026, -1.35, 1.35);
+  camera.quaternion.setFromEuler(eul);
+}
+cv.addEventListener('pointerdown', (e) => {
+  if (mode !== 'walk') return;
+  dragging = true; lastX = e.clientX; lastY = e.clientY; tip.style.display = 'none';
+  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+});
+cv.addEventListener('pointermove', (e) => {
+  if (mode !== 'walk') return;
+  if (document.pointerLockElement === cv) { turn(e.movementX, e.movementY); return; }
+  if (!dragging) return;
+  turn(e.clientX - lastX, e.clientY - lastY); lastX = e.clientX; lastY = e.clientY;
+});
+addEventListener('pointerup', () => { dragging = false; });
+cv.addEventListener('dblclick', () => {
+  if (mode !== 'walk' || !cv.requestPointerLock) return;
+  try { const p = cv.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (_) {}
+});
+
+const MOVE_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
+addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  if (mode !== 'walk') return;
+  if (MOVE_KEYS.includes(e.code)) { e.preventDefault(); tip.style.display = 'none'; }
+  if (e.code === 'KeyR') walkReset();
+});
 addEventListener('keyup', (e) => { keys[e.code] = false; });
-const ray = new THREE.Raycaster(), fwd = new THREE.Vector3(), right = new THREE.Vector3(), mv = new THREE.Vector3(), DOWN = new THREE.Vector3(0, -1, 0);
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+const ray = new THREE.Raycaster(), fwd = new THREE.Vector3(), right = new THREE.Vector3(), mv = new THREE.Vector3(),
+  DOWN = new THREE.Vector3(0, -1, 0), tryDir = new THREE.Vector3(), from = new THREE.Vector3(), yawOnly = new THREE.Euler();
+function canGo(dx, dz) {          // 前方沒有牆或殼體、腳下有可走的地面，回傳落腳點高度；不行回傳 null
+  const len = Math.hypot(dx, dz); if (len < 1e-6) return null;
+  tryDir.set(dx / len, 0, dz / len);
+  ray.set(camera.position, tryDir); ray.far = len + 0.7;
+  if (ray.intersectObjects(colliders, false).length) return null;
+  from.set(camera.position.x + dx, camera.position.y + 1, camera.position.z + dz);
+  ray.set(from, DOWN); ray.far = 8;
+  const hit = ray.intersectObjects(walkables, false)[0];
+  return hit ? hit.point.y : null;
+}
 function walkStep(dt) {
-  if (!look.isLocked) return;
-  camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize(); right.set(-fwd.z, 0, fwd.x);
+  if (keys.KeyQ) turn(-dt * 520, 0);
+  if (keys.KeyE) turn(dt * 520, 0);
+  fwd.set(0, 0, -1).applyEuler(yawOnly.set(0, eul.y, 0)); right.set(-fwd.z, 0, fwd.x);
   mv.set(0, 0, 0);
   if (keys.KeyW || keys.ArrowUp) mv.add(fwd);
   if (keys.KeyS || keys.ArrowDown) mv.sub(fwd);
   if (keys.KeyD || keys.ArrowRight) mv.add(right);
   if (keys.KeyA || keys.ArrowLeft) mv.sub(right);
   if (mv.lengthSq() === 0) return;
-  mv.normalize();
-  const step = ((keys.ShiftLeft || keys.ShiftRight) ? 16 : 5) * dt;
-  ray.set(camera.position, mv); ray.far = step + 0.8;                       // 前方有牆或殼體就停
-  if (ray.intersectObjects(colliders, false).length) return;
-  const nx = camera.position.x + mv.x * step, nz = camera.position.z + mv.z * step;
-  ray.set(new THREE.Vector3(nx, camera.position.y + 1, nz), DOWN); ray.far = 8;   // 腳下要有可走的地面
-  const hit = ray.intersectObjects(walkables, false)[0];
-  if (!hit) return;
-  camera.position.set(nx, THREE.MathUtils.lerp(camera.position.y, hit.point.y + EYE, 0.3), nz);
-  walkPos.copy(camera.position);
+  mv.normalize().multiplyScalar(((keys.ShiftLeft || keys.ShiftRight) ? 16 : 5) * dt);
+  for (const [dx, dz] of [[mv.x, mv.z], [mv.x, 0], [0, mv.z]]) {      // 走不過去就沿著邊緣滑動
+    const gy = canGo(dx, dz);
+    if (gy === null) continue;
+    camera.position.set(camera.position.x + dx, THREE.MathUtils.lerp(camera.position.y, gy + EYE, 0.3), camera.position.z + dz);
+    walkPos.copy(camera.position);
+    return;
+  }
 }
 
 addEventListener('resize', () => {
@@ -222,7 +268,7 @@ renderer.setAnimationLoop(() => {
   if (mode === 'orbit') orbit.update(); else walkStep(dt);
   renderer.render(scene, camera);
 });
-window.__dbg = { scene, camera, renderer, walkables, colliders, sun, sky, water, look, orbit, setMode, THREE };
+window.__dbg = { scene, camera, renderer, walkables, colliders, sun, sky, water, orbit, setMode, keys, eul, THREE };
 </script>
 </body>
 </html>

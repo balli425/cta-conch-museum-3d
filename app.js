@@ -1,4 +1,4 @@
-// 海螺館 3D 瀏覽：主程式
+// 築匠海洋館 3D 瀏覽：主程式
 // 座標：three 的 x＝東、y＝上、z＝南；Blender 模型座標 (x, y, z) 對應 three (x, z, -y)
 import * as THREE from 'three';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from './vendor/three-mesh-bvh.module.js';

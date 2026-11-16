@@ -414,10 +414,10 @@ function galleries({ THREE, scene, B, glowReg, rng, canvasTex, timeHooks }, L) {
     for (const fl of [Math.min(1, top)]) {
       const pts = gs.filter((g) => g.floor === fl).flatMap((g) => [...g.left, ...g.right]); if (!pts.length) continue;
       const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length, z = gs.find((g) => g.floor === fl).z;
-      const pl = new THREE.PointLight(0xfff0d8, 620, 60, 2); pl.position.copy(B(cx, cy, z + 2.6)); scene.add(pl); lamps.push(pl);
+      const pl = new THREE.PointLight(0xfff0d8, 1000, 70, 2); pl.position.copy(B(cx, cy, z + 2.6)); scene.add(pl); lamps.push(pl);
     }
   }
-  timeHooks.push((name) => { const f = { day: 1, dusk: 0.35, night: 0.12 }[name] ?? 1; for (const l of lamps) l.intensity = 620 * f; });
+  timeHooks.push((name) => { const f = { day: 1, dusk: 0.35, night: 0.12 }[name] ?? 1; for (const l of lamps) l.intensity = 1000 * f; });
   console.info(`各層展廳：展示櫃 ${cases.length}、展板 ${panels.reduce((a, b) => a + b.length, 0)}、長椅 ${benches.length}、室內燈 ${lamps.length}`);
 }
 

@@ -332,7 +332,7 @@ function buildCity(src, group) {
   }
 }
 async function loadMain() {
-  const g = await new GLTFLoader().loadAsync('./models/conch.glb');
+  const g = await new GLTFLoader().loadAsync('./models/conch.glb?v=20261116-1506');
   const city = [];
   g.scene.updateMatrixWorld(true);
   g.scene.traverse((o) => {
@@ -359,7 +359,7 @@ async function loadMain() {
 
 // 圓天窗：玻璃罩＋收邊環（實例化）
 async function loadSkylights() {
-  const j = await (await fetch('./models/skylights.json')).json();
+  const j = await (await fetch('./models/skylights.json?v=20261116-1506')).json();
   const all = Object.values(j.shells).flat();
   const cap = new THREE.SphereGeometry(1, 20, 6, 0, Math.PI * 2, 0, Math.PI * 0.44);
   cap.translate(0, -Math.cos(Math.PI * 0.44), 0); cap.scale(1 / Math.sin(Math.PI * 0.44), 1 / (1 - Math.cos(Math.PI * 0.44)), 1 / Math.sin(Math.PI * 0.44));   // 底圓半徑 1、高 1
@@ -421,7 +421,7 @@ function addLamps() {
 
 // ───────── 瀏覽：自由飛行與步行（撞到東西不能穿過，會沿表面滑動；Shift 三倍速） ─────────
 const VIEWS = {   // three 座標：x 東、y 上、z 南
-  aerial: { p: [66, 132, 232], t: [10, 14, 6] },      // 與原圖同角度
+  aerial: { p: [60, 172, 208], t: [10, 12, 8] },      // 與原圖同角度
   top: { p: [0, 470, -9], t: [0, 0, -10] },
   west: { p: [-270, 40, 80], t: [0, 20, 0] },
   north: { p: [60, 90, -280], t: [10, 20, -40] },
@@ -437,11 +437,11 @@ const eul = new THREE.Euler(0, 0, 0, 'YXZ');
 const help = $('help'), tip = $('walkTip');
 const HELP = {
   fly: '飛行：W A S D 前後左右、Q／空白鍵上升、E 下降、按住滑鼠左鍵拖曳轉向、滾輪前進後退、Shift 三倍速；撞到東西會停下或沿著表面滑過去',
-  walk: '步行：W A S D 或方向鍵移動、按住滑鼠左鍵拖曳轉頭、Shift 三倍速、R 回到起點；先飛到想去的地方再按「步行」會就地落地',
+  walk: '步行：W A S D 或方向鍵移動、按住滑鼠左鍵拖曳轉頭、Shift 三倍速、R 回到起點、PageUp／PageDown 上下樓；先飛到想去的地方再按「步行」會就地落地',
 };
 const TIP = {
   fly: 'W A S D 飛行　Q／空白鍵上升　E 下降<br>按住滑鼠左鍵拖曳轉向　滾輪前進後退<br>Shift 三倍速',
-  walk: 'W A S D（或方向鍵）移動　Shift 三倍速<br>按住滑鼠左鍵拖曳轉頭<br>R 回到起點',
+  walk: 'W A S D（或方向鍵）移動　Shift 三倍速<br>按住滑鼠左鍵拖曳轉頭<br>PageUp／PageDown 上下樓　R 回到起點',
 };
 function lookFrom(p, t) {
   camera.position.set(...p); camera.lookAt(...t);
@@ -470,6 +470,21 @@ function setMode(m) {
 }
 $('mFly').onclick = (e) => { e.currentTarget.blur(); setMode('fly'); };
 $('mWalk').onclick = (e) => { e.currentTarget.blur(); setMode('walk'); };
+// 上樓／下樓：像搭電梯，到正上方或正下方的樓層
+const allRay = new THREE.Raycaster();
+function floorJump(dirn) {
+  if (mode !== 'walk') setMode('walk');
+  allRay.set(from.set(camera.position.x, 400, camera.position.z), DOWN); allRay.far = 420;
+  const ys = [...new Set(allRay.intersectObjects(walkables, false).map((h) => +h.point.y.toFixed(1)))].sort((a, b) => a - b);
+  const cur = camera.position.y - EYE, list = dirn > 0 ? ys.filter((y) => y > cur + 1.5) : ys.filter((y) => y < cur - 1.5).reverse();
+  for (const y of list) {                                   // 上方要有 2.2 公尺淨空才算一層樓
+    ray.set(from.set(camera.position.x, y + 0.25, camera.position.z), dir.set(0, 1, 0)); ray.far = 2.2;
+    if (!ray.intersectObjects(solids, false).length) { camera.position.y = y + EYE; tip.style.display = 'none'; help.textContent = HELP.walk; return; }
+  }
+  help.textContent = '這個位置的' + (dirn > 0 ? '上' : '下') + '方沒有可以站的樓層（請走到展廳裡再試）';
+}
+$('fUp').onclick = (e) => { e.currentTarget.blur(); floorJump(1); };
+$('fDown').onclick = (e) => { e.currentTarget.blur(); floorJump(-1); };
 document.querySelectorAll('[data-view]').forEach((b) => b.onclick = () => { b.blur(); setView(b.dataset.view); tip.style.display = 'none'; });
 
 const cv = renderer.domElement;
@@ -502,6 +517,8 @@ addEventListener('keydown', (e) => {
   keys[e.code] = true; if (!e.repeat) fresh[e.code] = true;
   if (MOVE_KEYS.includes(e.code)) { e.preventDefault(); tip.style.display = 'none'; }
   if (e.code === 'KeyR' && mode === 'walk') lookFrom(WALK_START.p, WALK_START.t);
+  if (e.code === 'PageUp') { e.preventDefault(); floorJump(1); }
+  if (e.code === 'PageDown') { e.preventDefault(); floorJump(-1); }
 });
 addEventListener('keyup', (e) => { if (fresh[e.code]) releaseLater[e.code] = true; else keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -558,10 +575,10 @@ const ctx = { VIEWS, THREE, scene, camera, renderer, B, QUAY, M, GLOW, glowReg, 
 // ───────── 啟動 ─────────
 async function start() {
   try { skyInfo = await (await fetch('./assets/sky/sky_info.json')).json(); } catch (_) { skyInfo = null; }
-  layout = ctx.layout = await (await fetch('./models/layout.json')).json();
+  layout = ctx.layout = await (await fetch('./models/layout.json?v=20261116-1506')).json();
   await Promise.all([loadMain(), loadSkylights(), loadSky('day')]);
   addLogoText(); addLamps();
-  try { const ex = await import('./scene_main.js'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
+  try { const ex = await import('./scene_main.js?v=20261116-1506'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
   applyTime('day'); setMode('fly'); setView('aerial');
   veil.remove();
   loadSky('dusk'); loadSky('night');                       // 背景預載

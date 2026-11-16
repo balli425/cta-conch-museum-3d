@@ -189,7 +189,7 @@ scene.add(water);
 
 // ───────── 時段 ─────────
 const TIMES = {
-  day: { az: [-0.62, 0.52], minEl: 30, exposure: 0.5, sun: 9.5, sunColor: 0xffeed6, env: 0.75, hemi: 0.0, glow: 0, water: 0x175d78, bloom: [0.1, 1.7], bg: 1.0 },
+  day: { az: [-0.62, 0.52], minEl: 30, exposure: 0.5, sun: 11, sunColor: 0xffebcf, env: 0.62, hemi: 0.0, glow: 0, water: 0x0f5f86, bloom: [0.1, 1.7], bg: 1.0 },
   dusk: { az: [-0.95, -0.15], minEl: 7, exposure: 0.75, sun: 2.6, sunColor: 0xffb27a, env: 0.42, hemi: 0.0, glow: 0.7, water: 0x1a4560, bloom: [0.3, 1.1], bg: 1.0 },
   night: { az: [0.5, 0.6], minEl: 38, exposure: 0.8, sun: 0.35, sunColor: 0x9fb6ff, env: 0.11, hemi: 0.05, glow: 1.0, water: 0x04101a, bloom: [0.35, 1.15], bg: 1.0 },
 };
@@ -467,13 +467,14 @@ cv.addEventListener('dblclick', () => {
   try { const p = cv.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (_) {}
 });
 const MOVE_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
+const fresh = {}, releaseLater = {};      // 快速點按（按下放開都在同一格內）也要至少走一步
 addEventListener('keydown', (e) => {
-  keys[e.code] = true;
+  keys[e.code] = true; if (!e.repeat) fresh[e.code] = true;
   if (mode !== 'walk') return;
   if (MOVE_KEYS.includes(e.code)) { e.preventDefault(); tip.style.display = 'none'; }
   if (e.code === 'KeyR') walkReset();
 });
-addEventListener('keyup', (e) => { keys[e.code] = false; });
+addEventListener('keyup', (e) => { if (fresh[e.code]) releaseLater[e.code] = true; else keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
 const ray = new THREE.Raycaster(), fwd = new THREE.Vector3(), right = new THREE.Vector3(), mv = new THREE.Vector3(),
@@ -532,7 +533,8 @@ const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   water.material.uniforms.time.value += dt * 0.35;
-  if (mode === 'orbit') orbit.update(); else walkStep(dt);
+  if (mode === 'orbit') orbit.update(); else walkStep(Math.max(dt, 0.016));
+  for (const k in fresh) { delete fresh[k]; if (releaseLater[k]) { keys[k] = false; delete releaseLater[k]; } }
   for (const f of updaters) f(dt, t);
   composer.render();
 });

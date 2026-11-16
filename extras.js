@@ -145,8 +145,8 @@ async function plants({ THREE, scene, B, QUAY, rng }) {
       if (!o.isMesh) return;
       const m = o.material; let depth = null;
       if (m.transparent || m.alphaTest > 0 || m.alphaMap) {                    // 葉片：改用鏤空（不排序、可投影）
-        m.transparent = false; m.alphaTest = 0.45; m.side = THREE.DoubleSide; m.depthWrite = true;
-        depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: m.map, alphaTest: 0.45, side: THREE.DoubleSide });
+        m.transparent = false; m.alphaTest = 0.14; m.alphaToCoverage = true; m.side = THREE.DoubleSide; m.depthWrite = true;   // 門檻低＋覆蓋率抗鋸齒：遠看葉子才不會消失
+        depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: m.map, alphaTest: 0.14, side: THREE.DoubleSide });
       }
       m.envMapIntensity = 0.7;
       const im = new THREE.InstancedMesh(o.geometry, m, T.length), mm = new THREE.Matrix4();

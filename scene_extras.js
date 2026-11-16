@@ -139,7 +139,7 @@ async function plants(ctx, L) {
 // ───────── 室內大廳（拱殼 C 下方）與北廳（拱殼 K 下方） ─────────
 // 配置：主入口進來正上方是各殼片收攏的中心；西翼是圓柱水族缸與環繞坡道、夾層；東翼懸吊鯨魚；入口旁是弧形服務台。
 // 北廳沿北側設水母缸與座椅。
-function lobby({ THREE, scene, B, QUAY, addSolid, updaters, glowReg, rng, timeHooks }) {
+function lobby({ THREE, scene, B, QUAY, addSolid, solids, updaters, glowReg, rng, timeHooks }) {
   const R = rng(31), F = QUAY + 0.04, lights = [];
   const white = new THREE.MeshStandardMaterial({ color: 0xf0eee9, roughness: 0.45, side: THREE.DoubleSide });
   const glass = new THREE.MeshStandardMaterial({ color: 0x9fd0e6, roughness: 0.03, metalness: 0.9, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.6 });
@@ -192,7 +192,44 @@ function lobby({ THREE, scene, B, QUAY, addSolid, updaters, glowReg, rng, timeHo
     const cab = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 14, 6), new THREE.MeshStandardMaterial({ color: 0x555a5e, metalness: 0.8, roughness: 0.4 })); cab.position.set(sg * 4, 8, 0); whale.add(cab);
   }
   whale.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  whale.position.copy(B(40, -14, F + 12)); whale.rotation.y = THREE.MathUtils.degToRad(18); scene.add(whale);
+  // 先量大廳各處的淨高（由地坪往上打射線），鯨魚放在最高處，魚群放在淨高夠的地方
+  const floorC = scene.getObjectByName('lobby_floor_C'), spots = [];
+  if (floorC) {
+    const bb = new THREE.Box3().setFromObject(floorC), rc = new THREE.Raycaster(); rc.firstHitOnly = true;
+    const UPV = new THREE.Vector3(0, 1, 0), DNV = new THREE.Vector3(0, -1, 0), o = new THREE.Vector3();
+    for (let x = bb.min.x + 3; x < bb.max.x - 3; x += 3) for (let z = bb.min.z + 3; z < bb.max.z - 3; z += 3) {
+      rc.set(o.set(x, F + 1.5, z), DNV); rc.far = 3; if (!rc.intersectObject(floorC, false).length) continue;
+      rc.set(o.set(x, F + 2.6, z), UPV); rc.far = 80; const h = rc.intersectObjects(solids, false)[0];
+      spots.push({ x, z, c: h ? h.distance + 2.6 : 80 });
+    }
+  }
+  const clearAt = (x, z) => { let m = 1e9; for (const s of spots) if (Math.abs(s.x - x) < 7.6 && Math.abs(s.z - z) < 4.6) m = Math.min(m, s.c); return m; };
+  let best = null; for (const s of spots) { if (Math.hypot(s.x - AQ.x, s.z - AQ.z) < 16) continue; const c = clearAt(s.x, s.z); if (!best || c > best.c) best = { x: s.x, z: s.z, c }; }
+  const WY = best ? Math.min(best.c * 0.62, best.c - 5) : 12;
+  whale.position.set(best ? best.x : B(40, -14, 0).x, F + WY, best ? best.z : B(40, -14, 0).z);
+  if (best && best.c < 14) whale.scale.setScalar(Math.max(0.5, best.c / 14));
+  whale.rotation.y = THREE.MathUtils.degToRad(18); scene.add(whale);
+  console.info('鯨魚位置', whale.position.toArray().map((v) => +v.toFixed(1)), '該處淨高', best && +best.c.toFixed(1));
+  // 大廳上方的魚群：銀藍色小魚成群繞圈，另有魟魚與鯊魚緩慢滑行
+  const high = spots.filter((s) => s.c > 9), NS = high.length ? 420 : 0, NB = high.length ? 9 : 0;
+  const sg = new THREE.SphereGeometry(1, 10, 6); sg.scale(0.5, 0.17, 0.08);
+  const school = new THREE.InstancedMesh(sg, new THREE.MeshStandardMaterial({ color: 0xb9d2e6, roughness: 0.22, metalness: 0.85, envMapIntensity: 1.6, emissive: 0x24415c, emissiveIntensity: 0.35 }), Math.max(1, NS));
+  const sd = []; for (let i = 0; i < NS; i++) { const k = high[Math.floor(R() * high.length)], g = Math.floor(R() * 14); sd.push({ x: k.x + (R() - 0.5) * 3, z: k.z + (R() - 0.5) * 3, y: F + 5.5 + R() * Math.max(0.5, k.c - 8.5), r: 1.5 + R() * 4.5, a: R() * 6.283, w: (0.1 + R() * 0.12) * (g % 2 ? 1 : -1), s: 0.7 + R() * 1.0, b: R() * 6.283, top: F + k.c - 1.2 }); }
+  school.count = NS; school.frustumCulled = false; school.castShadow = true; scene.add(school);
+  const rayG = new THREE.SphereGeometry(1, 16, 8); rayG.scale(1.6, 0.14, 2.2);
+  const shkG = new THREE.SphereGeometry(1, 16, 8); shkG.scale(2.4, 0.42, 0.42);
+  const bigM = new THREE.MeshStandardMaterial({ color: 0x55708a, roughness: 0.45, metalness: 0.3, emissive: 0x16242f, emissiveIntensity: 0.4 });
+  const rays = new THREE.InstancedMesh(rayG, bigM, Math.max(1, NB)), shks = new THREE.InstancedMesh(shkG, bigM, Math.max(1, NB));
+  const bd = []; for (let i = 0; i < NB; i++) { const k = high[Math.floor(R() * high.length)]; bd.push({ x: k.x, z: k.z, y: F + 7 + R() * Math.max(0.5, k.c - 11), rx: 6 + R() * 8, rz: 3 + R() * 4, a: R() * 6.283, w: (0.05 + R() * 0.05) * (i % 2 ? 1 : -1), ray: i % 3 !== 0, s: 0.8 + R() * 0.5 }); }
+  rays.count = bd.filter((b) => b.ray).length; shks.count = bd.filter((b) => !b.ray).length; rays.frustumCulled = shks.frustumCulled = false; rays.castShadow = shks.castShadow = true; scene.add(rays, shks);
+  const fm = new THREE.Matrix4(), fq = new THREE.Quaternion(), fe = new THREE.Euler(), fp = new THREE.Vector3(), fs2 = new THREE.Vector3();
+  updaters.push((dt, t) => {
+    for (let i = 0; i < NS; i++) { const f = sd[i], a = f.a + t * f.w; fp.set(f.x + f.r * Math.cos(a), Math.min(f.top, f.y + Math.sin(t * 0.4 + f.b) * 0.5), f.z + f.r * Math.sin(a)); fe.set(0, -a + (f.w > 0 ? -Math.PI / 2 : Math.PI / 2) + Math.sin(t * 5 + f.b) * 0.1, 0); fm.compose(fp, fq.setFromEuler(fe), fs2.setScalar(f.s)); school.setMatrixAt(i, fm); }
+    if (NS) school.instanceMatrix.needsUpdate = true;
+    let ir = 0, is = 0;
+    for (const b of bd) { const a = b.a + t * b.w; fp.set(b.x + b.rx * Math.cos(a), b.y + Math.sin(t * 0.3 + b.a) * 0.4, b.z + b.rz * Math.sin(a)); const hd = Math.atan2(-b.rx * Math.sin(a) * Math.sign(b.w), b.rz * Math.cos(a) * Math.sign(b.w)); fe.set(0, hd + Math.PI / 2, b.ray ? Math.sin(t * 1.2 + b.a) * 0.12 : 0); fm.compose(fp, fq.setFromEuler(fe), fs2.setScalar(b.s)); if (b.ray) rays.setMatrixAt(ir++, fm); else shks.setMatrixAt(is++, fm); }
+    if (NB) { rays.instanceMatrix.needsUpdate = true; shks.instanceMatrix.needsUpdate = true; }
+  });
 
   // 弧形服務台（入口西側）
   const dk = new THREE.Shape(); dk.absarc(0, 0, 6.2, Math.PI * 0.1, Math.PI * 0.75, false); dk.absarc(0, 0, 5.0, Math.PI * 0.75, Math.PI * 0.1, true);
@@ -217,7 +254,7 @@ function lobby({ THREE, scene, B, QUAY, addSolid, updaters, glowReg, rng, timeHo
     fish.instanceMatrix.needsUpdate = true;
     for (let i = 0; i < NJ; i++) { const j = jd[i], pulse = 1 + Math.sin(t * 1.6 * j.w * 4 + j.p) * 0.14; p.set(JT.x + j.x, F + 0.9 + ((j.y + t * j.w * 0.35) % 5.6) + 0.2, JT.z - 0.9 + (i % 5) * 0.15); m4.compose(p, q.identity(), s.set(j.s / pulse, j.s * pulse, j.s / pulse)); jelly.setMatrixAt(i, m4); }
     jelly.instanceMatrix.needsUpdate = true;
-    whale.position.y = F + 12 + Math.sin(t * 0.35) * 0.12;
+    whale.position.y = F + WY + Math.sin(t * 0.35) * 0.12;
   });
 }
 
@@ -298,7 +335,7 @@ function halls({ THREE, scene, B, QUAY, addSolid, updaters, glowReg, rng, canvas
   const itemG = new THREE.BoxGeometry(0.22, 0.3, 0.22), items = new THREE.InstancedMesh(itemG, new THREE.MeshStandardMaterial({ roughness: 0.6 }), 90), m4 = new THREE.Matrix4(), col = new THREE.Color();
   for (let i = 0; i < 90; i++) { const sh = i % 9, k = Math.floor(sh / 3), x = [-4.2, 0, 4.2][sh % 3] + (Math.floor(i / 9) - 4.5) * 0.32; m4.makeTranslation(x, 1.08 + k * 0.75, 4.1); items.setMatrixAt(i, m4); items.setColorAt(i, col.setHSL(0.52 + R() * 0.12, 0.35, 0.45 + R() * 0.3)); }
   shop.add(items);
-  const sgn = canvasTex(1024, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = '#16324a'; g.font = '700 100px "Microsoft JhengHei","PingFang TC",sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillText('禮品店　Museum Shop', w / 2, 84); }, { repeat: false });
+  const sgn = canvasTex(1024, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = '#16324a'; let fs = 100; const tx = '禮品店　Museum Shop'; do { g.font = `700 ${fs}px "Microsoft JhengHei","PingFang TC",sans-serif`; fs -= 4; } while (g.measureText(tx).width > w - 60 && fs > 30); g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillText(tx, w / 2, 84); }, { repeat: false });
   add(new THREE.PlaneGeometry(6.4, 1.0), new THREE.MeshStandardMaterial({ map: sgn, transparent: true, roughness: 0.5 }), V(0, 4.0, -0.62), 0, shop).rotation.y = Math.PI;
   const sl = new THREE.PointLight(0xffd9a8, 260, 16, 2); sl.position.set(0, 3.6, 2.2); sl.userData.base = 260; shop.add(sl);
   finish(shop);

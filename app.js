@@ -437,11 +437,11 @@ const WALK_START = { p: [-11, QUAY + EYE, 150], t: [-3, 10, 40] };
 const eul = new THREE.Euler(0, 0, 0, 'YXZ');
 const help = $('help'), tip = $('walkTip');
 const HELP = {
-  fly: '飛行：W A S D 前後左右、E／空白鍵上升、Q 下降、按住滑鼠左鍵拖曳轉向、滾輪前進後退、Shift 三倍速；撞到東西會停下或沿著表面滑過去',
+  fly: '飛行：W A S D 前後左右、Q／空白鍵上升、E 下降、按住滑鼠左鍵拖曳轉向、滾輪前進後退、Shift 三倍速；撞到東西會停下或沿著表面滑過去',
   walk: '步行：W A S D 或方向鍵移動、按住滑鼠左鍵拖曳轉頭、Shift 三倍速、R 回到起點；先飛到想去的地方再按「步行」會就地落地',
 };
 const TIP = {
-  fly: 'W A S D 飛行　E／空白鍵上升　Q 下降<br>按住滑鼠左鍵拖曳轉向　滾輪前進後退<br>Shift 三倍速',
+  fly: 'W A S D 飛行　Q／空白鍵上升　E 下降<br>按住滑鼠左鍵拖曳轉向　滾輪前進後退<br>Shift 三倍速',
   walk: 'W A S D（或方向鍵）移動　Shift 三倍速<br>按住滑鼠左鍵拖曳轉頭<br>R 回到起點',
 };
 function lookFrom(p, t) {
@@ -530,7 +530,7 @@ function navStep(dt) {
   if (keys.KeyS || keys.ArrowDown) mv.sub(fwd);
   if (keys.KeyD) mv.add(right);
   if (keys.KeyA) mv.sub(right);
-  if (mode === 'fly') { if (keys.KeyE || keys.Space) mv.y += 1; if (keys.KeyQ || keys.KeyC) mv.y -= 1; }
+  if (mode === 'fly') { if (keys.KeyQ || keys.Space) mv.y += 1; if (keys.KeyE || keys.KeyC) mv.y -= 1; }
   if (mv.lengthSq() === 0) return;
   mv.normalize().multiplyScalar((mode === 'fly' ? FLY : WALK) * ((keys.ShiftLeft || keys.ShiftRight) ? BOOST : 1) * dt);
   if (mode === 'fly') {

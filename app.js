@@ -335,18 +335,18 @@ function buildCity(src, group) {
   }
 }
 async function loadMain() {
-  const g = await new GLTFLoader().loadAsync('./models/conch.glb?v=20261116-1533');
+  const g = await new GLTFLoader().loadAsync('./models/conch.glb?v=20261116-1558');
   const city = [];
   g.scene.updateMatrixWorld(true);
   g.scene.traverse((o) => {
     if (!o.isMesh) return;
     const n = o.name; o.castShadow = true; o.receiveShadow = true;
-    if (n.startsWith('walk_') || n.endsWith('_band') || n.startsWith('lobby_floor')) walkables.push(o);
+    if (n.startsWith('walk_') || n.endsWith('_band') || n.endsWith('_base') || n.startsWith('lobby_floor')) walkables.push(o);   // _base：蓋在水上的量體，一樓地板也要能站
     if (n.startsWith('core_')) o.material = M.core;
     else if (n.startsWith('lobby_floor')) { planarUV(o.geometry, 40); o.material = M.lobby; o.castShadow = false; }
     else if (n.startsWith('shell_')) o.material = M.shell;
     else if (n.includes('_glass')) { if (!o.geometry.attributes.uv) wallUV(o.geometry); o.material = M.glass; o.castShadow = false; o.renderOrder = 3; }
-    else if (n.startsWith('body_') || n.startsWith('fin_') || n.startsWith('tip_') || n.startsWith('rail_')) o.material = M.band;
+    else if (n.startsWith('body_') || n.startsWith('fin_') || n.startsWith('tip_') || n.startsWith('rail_') || n.startsWith('stairbody_')) o.material = M.band;
     else if (n.startsWith('curtain_')) { o.material = M.curtain; o.castShadow = false; o.renderOrder = 3; }
     else if (n.startsWith('walk_') || n.startsWith('pier_')) { planarUV(o.geometry, 3.65); o.material = M.quay; }
     else if (n.startsWith('road_')) { planarUV(o.geometry, 4.2); o.material = M.road; }
@@ -362,7 +362,7 @@ async function loadMain() {
 
 // 圓天窗：玻璃罩＋收邊環（實例化）
 async function loadSkylights() {
-  const j = await (await fetch('./models/skylights.json?v=20261116-1533')).json();
+  const j = await (await fetch('./models/skylights.json?v=20261116-1558')).json();
   const all = Object.values(j.shells).flat();
   const cap = new THREE.SphereGeometry(1, 20, 6, 0, Math.PI * 2, 0, Math.PI * 0.44);
   cap.translate(0, -Math.cos(Math.PI * 0.44), 0); cap.scale(1 / Math.sin(Math.PI * 0.44), 1 / (1 - Math.cos(Math.PI * 0.44)), 1 / Math.sin(Math.PI * 0.44));   // 底圓半徑 1、高 1
@@ -440,7 +440,7 @@ const eul = new THREE.Euler(0, 0, 0, 'YXZ');
 const help = $('help'), tip = $('walkTip');
 const HELP = {
   fly: '飛行：W A S D 前後左右、Q／空白鍵上升、E 下降、按住滑鼠左鍵拖曳轉向、滾輪前進後退、Shift 三倍速；撞到東西會停下或沿著表面滑過去',
-  walk: '步行：W A S D 或方向鍵移動、按住滑鼠左鍵拖曳轉頭、Shift 三倍速、R 回到起點、PageUp／PageDown 上下樓；先飛到想去的地方再按「步行」會就地落地',
+  walk: '步行：W A S D 或方向鍵移動、按住滑鼠左鍵拖曳轉頭、Shift 三倍速、R 回到起點、各棟展廳有樓梯可以走，也可以按 PageUp／PageDown 上下樓；先飛到想去的地方再按「步行」會就地落地',
 };
 const TIP = {
   fly: 'W A S D 飛行　Q／空白鍵上升　E 下降<br>按住滑鼠左鍵拖曳轉向　滾輪前進後退<br>Shift 三倍速',
@@ -578,11 +578,11 @@ const ctx = { VIEWS, THREE, scene, camera, renderer, B, QUAY, M, GLOW, glowReg, 
 // ───────── 啟動 ─────────
 async function start() {
   try { skyInfo = await (await fetch('./assets/sky/sky_info.json')).json(); } catch (_) { skyInfo = null; }
-  layout = ctx.layout = await (await fetch('./models/layout.json?v=20261116-1533')).json();
+  layout = ctx.layout = await (await fetch('./models/layout.json?v=20261116-1558')).json();
   await Promise.all([loadMain(), loadSkylights(), loadSky('day')]);
   addLogoText(); addLamps();
-  try { const ex = await import('./scene_main.js?v=20261116-1533'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
-  try { const dr = await import('./scene_doors.js?v=20261116-1533'); window.__doors = dr.init(ctx); } catch (e) { console.warn('門扇未載入：', e); }
+  try { const ex = await import('./scene_main.js?v=20261116-1558'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
+  try { const dr = await import('./scene_doors.js?v=20261116-1558'); window.__doors = dr.init(ctx); } catch (e) { console.warn('門扇未載入：', e); }
   applyTime('day'); setMode('fly'); setView('aerial');
   veil.remove();
   loadSky('dusk'); loadSky('night');                       // 背景預載

@@ -203,9 +203,9 @@ function fishKit({ THREE, scene, updaters, solids, rng }) {
     }
   }
   // 在一個長方水槽內來回游的魚（海底隧道、圓柱缸用）
-  function tankFish(parent, count, place, seed) {
+  function tankFish(parent, count, place, seed, bigFrac = 0.06, bigScale = 1) {
     const R = rng(seed), byGeo = { fish: [], tall: [], shark: [], ray: [] };
-    for (let i = 0; i < count; i++) { const big = i < count * 0.06, sp = SPECIES[Math.floor(R() * SPECIES.length)], key = big ? (i % 2 ? 'ray' : 'shark') : sp.g; byGeo[key].push({ ...place(R), s: big ? 0.9 + R() * 0.4 : sp.s * (0.7 + R() * 0.5), col: big ? 0x6f7d88 : sp.c, p: R() * 6.283 }); }
+    for (let i = 0; i < count; i++) { const big = i < count * bigFrac, sp = SPECIES[Math.floor(R() * SPECIES.length)], key = big ? (i % 2 ? 'ray' : 'shark') : sp.g; byGeo[key].push({ ...place(R), s: big ? (0.9 + R() * 0.4) * bigScale : sp.s * (0.7 + R() * 0.5), col: big ? 0x6f7d88 : sp.c, p: R() * 6.283 }); }
     const col = new THREE.Color(), out = [];
     for (const key in byGeo) { const d = byGeo[key]; if (!d.length) continue; const im = new THREE.InstancedMesh(GEO[key], mat, d.length); d.forEach((f, i) => im.setColorAt(i, col.set(f.col))); im.frustumCulled = false; im.renderOrder = 1; parent.add(im); out.push({ im, d }); }
     return out;
@@ -352,42 +352,81 @@ function oceanHall(ctx, H, kit) {
   for (let k = -3; k <= 3; k++) { const r = add(new THREE.TorusGeometry(TR + 0.06, 0.09, 8, 40, Math.PI), white, V(k * 5, 0, 0), false, tun); r.rotation.y = Math.PI / 2; }
   const tl = new THREE.PointLight(0x7fc4ff, 500, 30, 2); tl.position.set(0, 2.2, 0); tun.add(tl);
   timeHooks.push((name) => { tl.intensity = 500 * ({ day: 1, dusk: 0.5, night: 0.22 }[name] ?? 1); });
+  // 隧道內：深色地坪、扶手、兩側燈帶；水槽頂面的水光；管上方的大型鯊魚與魟魚
+  add(new THREE.BoxGeometry(TL, 0.06, TR * 1.5), new THREE.MeshStandardMaterial({ color: 0x2b3440, roughness: 0.75 }), V(0, 0.03, 0), false, tun);
+  const led = glowReg(new THREE.MeshStandardMaterial({ color: 0x9fdcff, emissive: 0x7fd0ff, roughness: 0.4 }), 0x7fd0ff, 0.6); led.userData.base = 1.2;
+  for (const sg of [-1, 1]) { add(new THREE.BoxGeometry(TL, 0.05, 0.05), white, V(0, 1.0, sg * (TR - 0.75)), false, tun); add(new THREE.BoxGeometry(TL, 0.04, 0.08), led, V(0, 0.1, sg * (TR * 0.75 + 0.06)), false, tun).castShadow = false; }
+  const cau = ctx.canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#0c5fa6'; g.fillRect(0, 0, w, h); const Rc = rng(5); g.filter = 'blur(3px)'; g.strokeStyle = 'rgba(190,232,255,0.5)'; for (let i = 0; i < 46; i++) { g.lineWidth = 3 + Rc() * 6; g.beginPath(); const cx = Rc() * w, cy = Rc() * h, rx = 16 + Rc() * 34, ry = 10 + Rc() * 24, ro = Rc() * 3.14; for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) { g.beginPath(); g.ellipse(cx + ox, cy + oy, rx, ry, ro, 0, 6.283); g.stroke(); } } g.filter = 'none'; });
+  cau.repeat.set(3, 1.2);
+  const cauM = glowReg(new THREE.MeshStandardMaterial({ map: cau, emissiveMap: cau, emissive: 0xffffff, roughness: 0.6, side: THREE.DoubleSide }), 0xffffff, 0.3); cauM.userData.base = 0.9;
+  const cp = add(new THREE.PlaneGeometry(TL - 0.6, TW - 0.4), cauM, V(0, TH - 0.03, 0), false, tun); cp.rotation.x = Math.PI / 2; cp.castShadow = false;
   finish(tun);
-  const swim = kit.tankFish(tun, 130, (Rr) => { const al = (0.14 + Rr() * 0.72) * Math.PI, ro = TR + 0.8 + Rr() * 2.4; return { y: Math.min(TH - 0.7, ro * Math.sin(al)), z: THREE.MathUtils.clamp(ro * Math.cos(al), -TW / 2 + 0.8, TW / 2 - 0.8), x0: Rr() * TL, v: (0.4 + Rr() * 0.9) * (Rr() < 0.5 ? 1 : -1) }; }, 88);
-  // 水母缸（東翼北側）
-  const jt = new THREE.Group(); jt.position.copy(H.V('N', 0.72, 0.6)); jt.rotation.y = H.ang('N', 0.72);
-  const tank = glowReg(new THREE.MeshStandardMaterial({ color: 0x0b3f8f, roughness: 0.15, transparent: true, opacity: 0.86, emissive: 0x0b4fc0 }), 0x1466e0, 0.25); tank.userData.base = 0.5;
-  add(new THREE.BoxGeometry(30, 0.8, 2.4), white, V(0, 0.4, 0), true, jt); add(new THREE.BoxGeometry(30, 6, 2.0), tank, V(0, 3.8, 0), true, jt).castShadow = false; add(new THREE.BoxGeometry(30.6, 0.6, 2.6), white, V(0, 7.1, 0), false, jt);
-  const NJ = 70, jelly = new THREE.InstancedMesh(new THREE.SphereGeometry(0.32, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), new THREE.MeshStandardMaterial({ color: 0xdff1ff, emissive: 0x9fd4ff, emissiveIntensity: 1.3, transparent: true, opacity: 0.85, side: THREE.DoubleSide }), NJ);
-  const jd = []; for (let i = 0; i < NJ; i++) jd.push({ x: (R() - 0.5) * 28, y: R() * 5, p: R() * 6.283, s: 0.6 + R() * 1.1, w: 0.25 + R() * 0.3 });
-  jelly.frustumCulled = false; jelly.renderOrder = 4; jt.add(jelly);
-  finish(jt);
-  // 咖啡座（東翼中央）
-  const cafe = new THREE.Group(); cafe.position.copy(H.V('N', 0.72, -0.05)); cafe.rotation.y = H.ang('N', 0.72);
+  const swim = kit.tankFish(tun, 150, (Rr) => { const al = (0.14 + Rr() * 0.72) * Math.PI, ro = TR + 0.8 + Rr() * 2.4; return { y: Math.min(TH - 0.7, ro * Math.sin(al)), z: THREE.MathUtils.clamp(ro * Math.cos(al), -TW / 2 + 0.8, TW / 2 - 0.8), x0: Rr() * TL, v: (0.4 + Rr() * 0.9) * (Rr() < 0.5 ? 1 : -1) }; }, 88);
+  swim.push(...kit.tankFish(tun, 9, (Rr) => ({ y: TR + 1.3 + Rr() * (TH - TR - 2.4), z: (Rr() - 0.5) * (TW - 4.5), x0: Rr() * TL, v: (0.25 + Rr() * 0.35) * (Rr() < 0.5 ? 1 : -1) }), 91, 1, 1.55));   // 管上方的大型鯊魚與魟魚
+  // 水母缸與咖啡廳（東翼）：弧形水母缸、缸前的磨石子吧台與暖色燈帶、圓桌與曲木椅
+  const jt = new THREE.Group(); jt.position.copy(H.V('N', 0.72, 0.6)); jt.rotation.y = H.ang('N', 0.72); jt.updateMatrixWorld(true);
+  const zc = jt.worldToLocal(H.V('N', 0.72, 0).clone()).z, zs = Math.sign(zc) || 1;                       // 大廳中線在缸的哪一側
+  const Rt = 26, PH = 15 / Rt;                                                                             // 弧形缸：半徑 26 公尺、弧長 30 公尺，凹面朝咖啡座
+  const arc = (r0, r1, y0, y1, m, solid) => {
+    const sh = new THREE.Shape(), a0 = zs * Math.PI / 2 - PH, a1 = zs * Math.PI / 2 + PH;
+    sh.absarc(0, 0, r1, a0, a1, false); sh.absarc(0, 0, r0, a1, a0, true);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: y1 - y0, bevelEnabled: false, curveSegments: 36 }); g.rotateX(-Math.PI / 2);
+    return add(g, m, V(0, y0, zs * Rt), solid, jt);
+  };
+  const tank = glowReg(new THREE.MeshStandardMaterial({ color: 0x0a3a8a, roughness: 0.4, emissive: 0x0b4fc0 }), 0x1466e0, 0.25); tank.userData.base = 0.6;          // 不透明的深藍背板
+  const tankGlass = new THREE.MeshStandardMaterial({ color: 0x8fc8f0, roughness: 0.03, metalness: 0.6, transparent: true, opacity: 0.16, depthWrite: false, envMapIntensity: 1.5 });
+  const terrT = ctx.canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#e8e5de'; g.fillRect(0, 0, w, h); const Rc = rng(9); for (let i = 0; i < 520; i++) { g.fillStyle = ['#3c3f44', '#8a8478', '#b9a27a', '#6f7b84'][Math.floor(Rc() * 4)]; g.beginPath(); g.ellipse(Rc() * w, Rc() * h, 1 + Rc() * 3.2, 1 + Rc() * 2.2, Rc() * 3.14, 0, 6.283); g.fill(); } });
+  const terr = new THREE.MeshStandardMaterial({ map: terrT, roughness: 0.3 });
+  const warm = glowReg(new THREE.MeshStandardMaterial({ color: 0xffd9a8, emissive: 0xffb46a, roughness: 0.5 }), 0xffb46a, 0.7); warm.userData.base = 0.9;
+  arc(Rt - 1.3, Rt + 1.1, 0, 0.8, white, true);
+  arc(Rt + 0.15, Rt + 1.0, 0.8, 6.8, tank, true).castShadow = false;
+  const tk = arc(Rt - 1.0, Rt - 0.96, 0.8, 6.8, tankGlass, true); tk.castShadow = false; tk.renderOrder = 5;                     // 最前面的玻璃，在水母之後畫
+  arc(Rt - 1.5, Rt + 1.3, 6.8, 8.2, white, false);                                                         // 缸上方的白色帶
+  arc(Rt - 2.25, Rt - 1.35, 0, 1.05, white, true); arc(Rt - 2.4, Rt - 1.3, 1.05, 1.12, terr, false);        // 吧台與磨石子檯面
+  arc(Rt - 2.29, Rt - 2.25, 0.08, 0.15, warm, false).castShadow = false;                                    // 吧台下方的暖色燈帶
+  const NJ = 120, jelly = new THREE.InstancedMesh(new THREE.SphereGeometry(0.32, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), new THREE.MeshStandardMaterial({ color: 0xdff1ff, emissive: 0x9fd4ff, emissiveIntensity: 1.4, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }), NJ);
+  const tg2 = new THREE.CylinderGeometry(0.13, 0.02, 0.8, 7, 1, true); tg2.translate(0, -0.42, 0);
+  const tent = new THREE.InstancedMesh(tg2, new THREE.MeshStandardMaterial({ color: 0xcfe6ff, emissive: 0x7fb8f0, emissiveIntensity: 0.6, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }), NJ);
+  const jd = []; for (let i = 0; i < NJ; i++) jd.push({ f: (R() - 0.5) * 2 * PH * 0.96, r: Rt - 0.8 + R() * 0.8, y: R() * 5.0, p: R() * 6.283, s: 0.5 + R() * R() * 1.6, w: 0.25 + R() * 0.3 });
+  for (const im of [jelly, tent]) { im.frustumCulled = false; im.renderOrder = 4; jt.add(im); }
   const tabs = [], chs = [];
-  for (let i = -2; i <= 2; i++) for (let j = -1; j <= 1; j++) { const x = i * 3.6 + (j ? 0.9 : 0), z = j * 3.4; tabs.push([x, z]); for (let k = 0; k < 3; k++) { const a = k * 2.094 + i + j; chs.push([x + Math.cos(a) * 0.95, z + Math.sin(a) * 0.95, a]); } }
-  const inst = (geo, mat, list, y, f) => { const im = new THREE.InstancedMesh(geo, mat, list.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(); list.forEach((t, i) => { m.compose(V(t[0], y, t[1]), q.setFromEuler(e.set(0, f ? -t[2] + Math.PI / 2 : 0, 0)), V(1, 1, 1)); im.setMatrixAt(i, m); }); im.castShadow = true; im.receiveShadow = true; cafe.add(im); };
-  inst(new THREE.CylinderGeometry(0.48, 0.48, 0.05, 24), white, tabs, 0.74); inst(new THREE.CylinderGeometry(0.08, 0.26, 0.72, 16), white, tabs, 0.36);
+  for (let k = -10; k <= 10; k++) { const f = k * 1.35 / (Rt - 3.0), x = (Rt - 3.0) * Math.sin(f), z = zs * (Rt - (Rt - 3.0) * Math.cos(f)); chs.push([x, z, Math.atan2(zs * Rt - z, -x)]); }   // 吧台椅，面向水母缸
+  for (let i = -3; i <= 3; i++) for (let j = -1; j <= 1; j++) {
+    const x = i * 3.6 + (j ? 0.9 : 0), z = zc + j * 3.4; if (Math.hypot(x, z - zs * Rt) > Rt - 5.2) continue;                                                                   // 太靠近吧台的不放
+    tabs.push([x, z]); for (let k = 0; k < 3; k++) { const a = k * 2.094 + i + j; chs.push([x + Math.cos(a) * 0.95, z + Math.sin(a) * 0.95, a]); }
+  }
+  const inst = (geo, mat, list, y, f) => { const im = new THREE.InstancedMesh(geo, mat, list.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(); list.forEach((t, i) => { m.compose(V(t[0], y, t[1]), q.setFromEuler(e.set(0, f ? -t[2] - Math.PI / 2 : 0, 0)), V(1, 1, 1)); im.setMatrixAt(i, m); }); im.castShadow = true; im.receiveShadow = true; jt.add(im); return im; };
+  inst(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 28), terr, tabs, 0.745); inst(new THREE.CylinderGeometry(0.09, 0.3, 0.72, 20), white, tabs, 0.36);
+  inst(new THREE.CylinderGeometry(0.05, 0.04, 0.12, 10), white, tabs, 0.83); inst(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshStandardMaterial({ color: 0x7fae6a, roughness: 0.8 }), tabs, 0.93);
   inst(new THREE.CylinderGeometry(0.21, 0.19, 0.04, 16), wood, chs, 0.46);
   inst(new THREE.CylinderGeometry(0.02, 0.02, 0.46, 6), wood, chs.flatMap(([x, z]) => [[x + 0.15, z + 0.15], [x - 0.15, z + 0.15], [x + 0.15, z - 0.15], [x - 0.15, z - 0.15]]), 0.23);
-  const backG = new THREE.TorusGeometry(0.2, 0.014, 6, 16, Math.PI); backG.translate(0, 0, -0.18); inst(backG, wood, chs, 0.48, true);
-  add(new THREE.BoxGeometry(7.5, 1.1, 0.9), white, V(-1, 0.55, 7.4), true, cafe); add(new THREE.BoxGeometry(7.7, 0.05, 1.05), wood, V(-1, 1.12, 7.4), false, cafe);
-  finish(cafe);
+  const backG = new THREE.TorusGeometry(0.2, 0.014, 6, 16, Math.PI); backG.translate(0, 0, -0.18); inst(backG, wood, chs, 0.48, true);                                              // 椅背在外側
+  // 咖啡吧台與招牌（西端）
+  add(new THREE.BoxGeometry(0.9, 1.1, 6), white, V(-15.2, 0.55, zc), true, jt); add(new THREE.BoxGeometry(1.05, 0.06, 6.2), wood, V(-15.2, 1.13, zc), false, jt);
+  add(new THREE.BoxGeometry(0.25, 3.2, 6.6), white, V(-16.9, 1.6, zc), true, jt);
+  add(new THREE.BoxGeometry(0.5, 0.45, 0.7), new THREE.MeshStandardMaterial({ color: 0x2a2d31, roughness: 0.35, metalness: 0.7 }), V(-15.2, 1.38, zc - 1.6), false, jt);
+  const signT = ctx.canvasTex(512, 160, (g, w, h) => { g.fillStyle = '#12233f'; g.fillRect(0, 0, w, h); g.fillStyle = '#f4f7f9'; g.font = '700 76px "Microsoft JhengHei","PingFang TC",sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillText('水母咖啡', w / 2, h / 2 + 4); }, { repeat: false });
+  const signM = glowReg(new THREE.MeshStandardMaterial({ map: signT, emissiveMap: signT, emissive: 0xffffff, roughness: 0.6 }), 0xffffff, 0.25); signM.userData.base = 0.3;
+  add(new THREE.PlaneGeometry(3.6, 1.1), signM, V(-16.76, 2.45, zc), false, jt).rotation.y = Math.PI / 2;
+  finish(jt);
   // 上方魚群
   kit.schools(kit.spotsOver(scene.getObjectByName('lobby_floor_N'), F), F, 12, 30, 7, 909);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3();
   updaters.push((dt, t) => {
     for (const { im, d } of swim) { for (let i = 0; i < d.length; i++) { const f = d[i], x = ((((f.x0 + t * f.v) % TL) + TL) % TL) - TL / 2; p.set(x, f.y + Math.sin(t * 0.5 + f.p) * 0.25, f.z); e.set(0, (f.v > 0 ? 0 : Math.PI) + Math.sin(t * 5 + f.p) * 0.1, 0); m.compose(p, q.setFromEuler(e), s.setScalar(f.s * 0.85)); im.setMatrixAt(i, m); } im.instanceMatrix.needsUpdate = true; }
-    for (let i = 0; i < NJ; i++) { const j = jd[i], pulse = 1 + Math.sin(t * 6.4 * j.w + j.p) * 0.14; p.set(j.x, 1.0 + ((j.y + t * j.w * 0.35) % 5.4), -0.9 + (i % 5) * 0.15); m.compose(p, q.identity(), s.set(j.s / pulse, j.s * pulse, j.s / pulse)); jelly.setMatrixAt(i, m); }
-    jelly.instanceMatrix.needsUpdate = true;
+    cau.offset.x = t * 0.012; cau.offset.y = Math.sin(t * 0.2) * 0.05;
+    for (let i = 0; i < NJ; i++) { const j = jd[i], pulse = 1 + Math.sin(t * 6.4 * j.w + j.p) * 0.14; p.set(j.r * Math.sin(j.f), 1.5 + ((j.y + t * j.w * 0.3) % 4.9), zs * (Rt - j.r * Math.cos(j.f))); m.compose(p, q.identity(), s.set(j.s / pulse, j.s * pulse, j.s / pulse)); jelly.setMatrixAt(i, m); m.compose(p, q.identity(), s.setScalar(j.s)); tent.setMatrixAt(i, m); }
+    jelly.instanceMatrix.needsUpdate = true; tent.instanceMatrix.needsUpdate = true;
   });
 }
 
 // ───────── 各層展廳：沿每層玻璃與室內牆之間的中線，擺展示櫃、展板與長椅 ─────────
 function galleries({ THREE, scene, B, glowReg, rng, canvasTex, timeHooks }, L) {
   const R = rng(1234), cases = [], panels = [[], [], [], []], benches = [];
+  const inStair = (shell, p) => (L.stairs || []).some((s) => { if (s.shell !== shell) return false; const dx = p[0] - s.O[0], dy = p[1] - s.O[1], x = dx * s.d[0] + dy * s.d[1], n = dx * s.n[0] + dy * s.n[1]; return x > -34 && x < 12 && Math.abs(n) < 7.5; });
   for (const g of L.galleries) for (const side of [g.left, g.right]) for (let i = 1; i < side.length - 1; i++) {
     const a = side[i - 1], b = side[i + 1], p = side[i], ang = Math.atan2(b[1] - a[1], b[0] - a[0]), k = (i + g.floor) % 3;
+    if (inStair(g.shell, p)) continue;                        // 樓梯與電梯廳不放展品
     const item = { p: B(p[0], p[1], g.z), ang };
     if (k === 0) cases.push(item); else if (k === 1) panels[Math.floor(R() * 4)].push(item); else if (i % 2) benches.push(item);
   }
@@ -413,11 +452,12 @@ function galleries({ THREE, scene, B, glowReg, rng, canvasTex, timeHooks }, L) {
     const gs = byShell[name], top = Math.max(...gs.map((g) => g.floor));
     for (const fl of [Math.min(1, top)]) {
       const pts = gs.filter((g) => g.floor === fl).flatMap((g) => [...g.left, ...g.right]); if (!pts.length) continue;
-      const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length, z = gs.find((g) => g.floor === fl).z;
-      const pl = new THREE.PointLight(0xfff0d8, 1000, 70, 2); pl.position.copy(B(cx, cy, z + 2.6)); scene.add(pl); lamps.push(pl);
+      let cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length; const z = gs.find((g) => g.floor === fl).z;
+      const st = (L.stairs || []).find((q) => q.shell === name); if (st) { cx = st.O[0] + st.d[0] * 3 - st.n[0] * 0.5; cy = st.O[1] + st.d[1] * 3 - st.n[1] * 0.5; }     // 有樓梯的量體：燈放在樓梯廳
+      const pl = new THREE.PointLight(0xfff0d8, st ? 300 : 1000, 70, 2); pl.userData.base = pl.intensity; pl.position.copy(B(cx, cy, z + 3.2)); scene.add(pl); lamps.push(pl);
     }
   }
-  timeHooks.push((name) => { const f = { day: 1, dusk: 0.35, night: 0.12 }[name] ?? 1; for (const l of lamps) l.intensity = 1000 * f; });
+  timeHooks.push((name) => { const f = { day: 1, dusk: 0.35, night: 0.12 }[name] ?? 1; for (const l of lamps) l.intensity = l.userData.base * f; });
   console.info(`各層展廳：展示櫃 ${cases.length}、展板 ${panels.reduce((a, b) => a + b.length, 0)}、長椅 ${benches.length}、室內燈 ${lamps.length}`);
 }
 

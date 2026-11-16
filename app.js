@@ -338,12 +338,12 @@ async function loadMain() {
   g.scene.traverse((o) => {
     if (!o.isMesh) return;
     const n = o.name; o.castShadow = true; o.receiveShadow = true;
-    if (n.startsWith('walk_')) walkables.push(o);
+    if (n.startsWith('walk_') || n.endsWith('_band') || n.startsWith('lobby_floor')) walkables.push(o);
     if (n.startsWith('core_')) o.material = M.core;
     else if (n.startsWith('lobby_floor')) { planarUV(o.geometry, 40); o.material = M.lobby; o.castShadow = false; }
     else if (n.startsWith('shell_')) o.material = M.shell;
-    else if (n.includes('_glass')) { wallUV(o.geometry); o.material = M.glass; o.castShadow = false; o.renderOrder = 3; }
-    else if (n.startsWith('body_')) o.material = M.band;
+    else if (n.includes('_glass')) { if (!o.geometry.attributes.uv) wallUV(o.geometry); o.material = M.glass; o.castShadow = false; o.renderOrder = 3; }
+    else if (n.startsWith('body_') || n.startsWith('fin_') || n.startsWith('tip_') || n.startsWith('rail_')) o.material = M.band;
     else if (n.startsWith('curtain_')) { o.material = M.curtain; o.castShadow = false; o.renderOrder = 3; }
     else if (n.startsWith('walk_') || n.startsWith('pier_')) { planarUV(o.geometry, 3.65); o.material = M.quay; }
     else if (n.startsWith('road_')) { planarUV(o.geometry, 4.2); o.material = M.road; }
@@ -387,22 +387,21 @@ function addLogoText() {
   }, { repeat: false });
   const mat = glowReg(new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.4, metalness: 0.2, emissiveMap: t }), 0xffffff, 0.9);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.31), mat);
-  m.position.copy(B(-10.2, -52.115, QUAY + 0.35 + 0.72)); scene.add(m);
+  m.position.copy(B(layout.logo_text[0], layout.logo_text[1], QUAY + 0.35 + 0.72)); scene.add(m);
 }
 
 // 路燈與矮燈（夜間發光、地面光暈）
 function addLamps() {
-  const tall = [], low = [];
-  for (let x = -210; x <= 210; x += 28) tall.push(B(x, -138, QUAY));
-  for (let y = -110; y <= 270; y += 28) tall.push(B(178, y, QUAY));
-  for (let x = -116; x <= 110; x += 25) { tall.push(B(x, 106, QUAY)); }
-  for (let y = -40; y <= 100; y += 28) { tall.push(B(-122, y, QUAY)); tall.push(B(116, y, QUAY)); }
-  const br = [[[-63.7, -136], [-27.4, -52], 9], [[-10.4, -136], [-1.35, -52], 7]];
-  for (const [a, b, w] of br) {
-    const d = new THREE.Vector2(b[0] - a[0], b[1] - a[1]), L = d.length(); d.normalize(); const nx = -d.y, ny = d.x;
-    for (let s = 5; s < L - 3; s += 9) for (const sg of [-1, 1]) low.push(B(a[0] + d.x * s + nx * sg * (w / 2 - 0.35), a[1] + d.y * s + ny * sg * (w / 2 - 0.35), QUAY));
+  const tall = [], low = [], S = layout.site, rampX = S.ramps.map((r) => r.c[0][0]);
+  for (let x = -214; x <= 214; x += 28) if (!rampX.some((rx) => Math.abs(rx - x) < 9)) tall.push(B(x, -143, QUAY));   // 西南岸邊，坡道起點讓開
+  for (let y = -126; y <= 290; y += 28) tall.push(B(137, y, QUAY));                                                    // 東側步道
+  for (let x = -130; x <= 118; x += 27) tall.push(B(x, 140.5, QUAY));                                                 // 平台北緣
+  for (let y = -40; y <= 130; y += 28) tall.push(B(-135.5, y, QUAY));                                                 // 平台西緣
+  for (const r of S.ramps) for (let i = 2; i < r.c.length - 1; i += 3) {                                              // 三條坡道兩側的矮燈
+    const p0 = r.c[i - 1], p1 = r.c[i + 1], d = new THREE.Vector2(p1[0] - p0[0], p1[1] - p0[1]).normalize();
+    for (const sg of [-1, 1]) low.push(B(r.c[i][0] - d.y * sg * (r.w / 2 - 0.55), r.c[i][1] + d.x * sg * (r.w / 2 - 0.55), QUAY));
   }
-  for (let x = -21; x <= -7; x += 3.5) low.push(B(x, -49.6, QUAY + 0.35));
+  for (let x = 3; x <= 17; x += 3.5) low.push(B(x, -61.2, QUAY));                                                     // 標誌前
   const mk = (geo, mat, list, f) => { const im = new THREE.InstancedMesh(geo, mat, list.length), m = new THREE.Matrix4(); list.forEach((p, i) => { m.makeTranslation(p.x, p.y + f, p.z); im.setMatrixAt(i, m); }); im.castShadow = true; scene.add(im); return im; };
   mk(new THREE.CylinderGeometry(0.07, 0.11, 7, 8), M.lampPole, tall, 3.5);
   mk(new THREE.SphereGeometry(0.34, 12, 8), M.lampHead, tall, 7.15).castShadow = false;
@@ -422,18 +421,18 @@ function addLamps() {
 
 // ───────── 瀏覽：自由飛行與步行（撞到東西不能穿過，會沿表面滑動；Shift 三倍速） ─────────
 const VIEWS = {   // three 座標：x 東、y 上、z 南
-  aerial: { p: [92, 135, 190], t: [8, 6, 12] },
-  top: { p: [0, 430, 1], t: [0, 0, 0] },
-  west: { p: [-250, 28, 60], t: [0, 14, 0] },
-  north: { p: [40, 70, -230], t: [0, 10, 0] },
-  entry: { p: [-40, 7.5, 104], t: [-10, 12, 20] },
-  roof: { p: [44, 58, 96], t: [14, 26, 34] },
+  aerial: { p: [66, 132, 232], t: [10, 14, 6] },      // 與原圖同角度
+  top: { p: [0, 470, -9], t: [0, 0, -10] },
+  west: { p: [-270, 40, 80], t: [0, 20, 0] },
+  north: { p: [60, 90, -280], t: [10, 20, -40] },
+  entry: { p: [-66, 12, 128], t: [-12, 16, 30] },
+  roof: { p: [70, 78, 120], t: [24, 40, 30] },
   lobby: { p: [-3.4, 4.2, 14], t: [-30, 9, 2] },
 };
 const RADIUS = 0.6, FLY = 14, WALK = 3.5, BOOST = 3;
 const keys = {};
 let mode = 'fly';
-const WALK_START = { p: [-11, QUAY + EYE, 150], t: [-3, 10, 40] };
+const WALK_START = { p: [-50, QUAY + EYE, 152], t: [-22, 8, 58] };   // 第二條坡道起點
 const eul = new THREE.Euler(0, 0, 0, 'YXZ');
 const help = $('help'), tip = $('walkTip');
 const HELP = {
@@ -448,7 +447,7 @@ function lookFrom(p, t) {
   camera.position.set(...p); camera.lookAt(...t);
   eul.setFromQuaternion(camera.quaternion, 'YXZ'); eul.z = 0; camera.quaternion.setFromEuler(eul);
 }
-function setView(k) { if (mode !== 'fly') setMode('fly'); lookFrom(VIEWS[k].p, VIEWS[k].t); }
+function setView(k) { if (!VIEWS[k]) return; if (mode !== 'fly') setMode('fly'); lookFrom(VIEWS[k].p, VIEWS[k].t); }
 const ray = new THREE.Raycaster(); ray.firstHitOnly = true;
 const fwd = new THREE.Vector3(), right = new THREE.Vector3(), mv = new THREE.Vector3(), DOWN = new THREE.Vector3(0, -1, 0),
   dir = new THREE.Vector3(), nrm = new THREE.Vector3(), from = new THREE.Vector3(), prev = new THREE.Vector3(), cand = new THREE.Vector3(), yawOnly = new THREE.Euler();
@@ -553,14 +552,16 @@ addEventListener('resize', () => {
 
 // ───────── 景觀、植栽、室內、人物、船舶由 scene_extras.js 掛進來 ─────────
 const updaters = [];
-const ctx = { THREE, scene, camera, renderer, B, QUAY, M, GLOW, glowReg, timeHooks, updaters, solids, addSolid, colliders, walkables, rng, canvasTex, MAXA, getGlow: () => glowLevel, getTime: () => curTime };
+let layout = null;
+const ctx = { VIEWS, THREE, scene, camera, renderer, B, QUAY, M, GLOW, glowReg, timeHooks, updaters, solids, addSolid, colliders, walkables, rng, canvasTex, MAXA, getGlow: () => glowLevel, getTime: () => curTime };
 
 // ───────── 啟動 ─────────
 async function start() {
   try { skyInfo = await (await fetch('./assets/sky/sky_info.json')).json(); } catch (_) { skyInfo = null; }
+  layout = ctx.layout = await (await fetch('./models/layout.json')).json();
   await Promise.all([loadMain(), loadSkylights(), loadSky('day')]);
   addLogoText(); addLamps();
-  try { const ex = await import('./scene_extras.js'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
+  try { const ex = await import('./scene_main.js'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
   applyTime('day'); setMode('fly'); setView('aerial');
   veil.remove();
   loadSky('dusk'); loadSky('night');                       // 背景預載

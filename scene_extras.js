@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export async function init(ctx) {
   const L = landscape(ctx);                       // 先建花台（會成為障礙物），再放植栽與人
-  lobby(ctx);
+  lobby(ctx); halls(ctx);
   const r = await Promise.allSettled([plants(ctx, L), ships(ctx)]);
   r.forEach((x, i) => { if (x.status === 'rejected') console.warn(['植栽', '船舶'][i] + '未載入：', x.reason); });
   people(ctx);
@@ -139,18 +139,20 @@ async function plants(ctx, L) {
 // ───────── 室內大廳（拱殼 C 下方）與北廳（拱殼 K 下方） ─────────
 // 配置：主入口進來正上方是各殼片收攏的中心；西翼是圓柱水族缸與環繞坡道、夾層；東翼懸吊鯨魚；入口旁是弧形服務台。
 // 北廳沿北側設水母缸與座椅。
-function lobby({ THREE, scene, B, QUAY, addSolid, updaters, glowReg, rng }) {
-  const R = rng(31), F = QUAY + 0.04;
+function lobby({ THREE, scene, B, QUAY, addSolid, updaters, glowReg, rng, timeHooks }) {
+  const R = rng(31), F = QUAY + 0.04, lights = [];
   const white = new THREE.MeshStandardMaterial({ color: 0xf0eee9, roughness: 0.45, side: THREE.DoubleSide });
   const glass = new THREE.MeshStandardMaterial({ color: 0x9fd0e6, roughness: 0.03, metalness: 0.9, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.6 });
-  const waterM = glowReg(new THREE.MeshStandardMaterial({ color: 0x0c5a8c, roughness: 0.2, transparent: true, opacity: 0.8, emissive: 0x0b5f9a }), 0x0b6fb4, 0.9);
+  const waterM = glowReg(new THREE.MeshStandardMaterial({ color: 0x0c5a8c, roughness: 0.2, transparent: true, opacity: 0.8, emissive: 0x0b5f9a }), 0x0b6fb4, 0.25);
   waterM.userData.base = 0.45;                                          // 白天也有一點自發光（缸內照明）
   const add = (g, m, p, solid = false, shadow = true) => { const o = new THREE.Mesh(g, m); o.position.copy(p); o.castShadow = shadow; o.receiveShadow = true; scene.add(o); o.updateMatrixWorld(true); if (solid) addSolid(o); return o; };
 
   // 室內補光：暖白點光源（不投影），讓大廳不會只剩天窗光斑以外一片暗
   for (const [x, y, h, k] of [[-36, -1, 22, 1], [-14, -8, 16, 0.8], [8, -8, 14, 0.8], [30, -12, 16, 0.8], [46, -15, 18, 0.9], [-20, 36, 16, 0.8], [4, 36, 18, 0.9], [28, 34, 16, 0.8]]) {
-    const pl = new THREE.PointLight(0xfff0d8, 1500 * k, 75, 2); pl.position.copy(B(x, y, F + h)); scene.add(pl);
+    const pl = new THREE.PointLight(0xfff0d8, 1500 * k, 75, 2); pl.position.copy(B(x, y, F + h)); pl.userData.base = 1500 * k; scene.add(pl); lights.push(pl);
   }
+  // 室內燈要跟著時段調：夜晚曝光較高、周圍又暗，同樣亮度會整片過曝刺眼
+  timeHooks.push((name) => { const f = { day: 1, dusk: 0.3, night: 0.085 }[name] ?? 1; for (const l of lights) l.intensity = l.userData.base * f; });
   // 圓柱水族缸
   const AQ = B(-36, -1, F), AR = 4.6, AH = 17;
   add(new THREE.CylinderGeometry(AR + 0.5, AR + 0.7, 0.9, 48), white, AQ.clone().setY(F + 0.45), true);
@@ -198,7 +200,7 @@ function lobby({ THREE, scene, B, QUAY, addSolid, updaters, glowReg, rng }) {
   add(dg, white, B(-17, -15, F), true);
 
   // 北廳：水母缸（發光水體＋半透明水母）與長椅
-  const JT = B(4, 46, F), tank = glowReg(new THREE.MeshStandardMaterial({ color: 0x0b3f8f, roughness: 0.15, transparent: true, opacity: 0.86, emissive: 0x0b4fc0 }), 0x1466e0, 1.0);
+  const JT = B(4, 46, F), tank = glowReg(new THREE.MeshStandardMaterial({ color: 0x0b3f8f, roughness: 0.15, transparent: true, opacity: 0.86, emissive: 0x0b4fc0 }), 0x1466e0, 0.25);
   tank.userData.base = 0.5;
   add(new THREE.BoxGeometry(34, 0.8, 2.4), white, JT.clone().setY(F + 0.4), true);
   add(new THREE.BoxGeometry(34, 6, 2.0), tank, JT.clone().setY(F + 3.8), true, false);
@@ -219,6 +221,117 @@ function lobby({ THREE, scene, B, QUAY, addSolid, updaters, glowReg, rng }) {
   });
 }
 
+// ───────── 室內第二批：海底隧道、水母咖啡座、售票處、禮品店、展示櫃、指標牌、夾層欄杆 ─────────
+// 位置：海底隧道在北廳西翼（沿廳的長向）；咖啡座在北廳東翼、靠水母缸與北側玻璃；
+// 售票處在主入口東側；禮品店在大廳東翼南側；展示櫃圍在鯨魚下方；指標牌在入口附近。
+function halls({ THREE, scene, B, QUAY, addSolid, updaters, glowReg, rng, canvasTex, timeHooks }) {
+  const R = rng(77), F = QUAY + 0.04;
+  const white = new THREE.MeshStandardMaterial({ color: 0xf0eee9, roughness: 0.45, side: THREE.DoubleSide });
+  const navy = new THREE.MeshStandardMaterial({ color: 0x16324a, roughness: 0.5 });
+  const wood = new THREE.MeshStandardMaterial({ color: 0xb68b5a, roughness: 0.6 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x9fd0e6, roughness: 0.03, metalness: 0.9, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.6 });
+  const sea = glowReg(new THREE.MeshStandardMaterial({ color: 0x0a4f86, roughness: 0.3, side: THREE.DoubleSide, emissive: 0x0a5fa8 }), 0x0a5fa8, 0.2); sea.userData.base = 0.55;
+  const warm = glowReg(new THREE.MeshStandardMaterial({ color: 0xf3dfbd, roughness: 0.7, emissive: 0xffc98a }), 0xffc98a, 0.5); warm.userData.base = 0.35;
+  const add = (g, m, p, solid = false, parent = scene) => { const o = new THREE.Mesh(g, m); o.position.copy(p); o.castShadow = true; o.receiveShadow = true; parent.add(o); return o; };
+  const finish = (grp) => { scene.add(grp); grp.updateMatrixWorld(true); grp.traverse((o) => { if (o.isMesh && o.userData.solid) addSolid(o); }); };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+  // ── 海底隧道：長 36、寬 13、高 8 公尺的水槽，中間一條半徑 3 公尺的玻璃隧道 ──
+  const TL = 36, TW = 13, TH = 8, TR = 3.0, tun = new THREE.Group();
+  tun.position.copy(B(-31, 38.5, F)); tun.rotation.y = Math.atan2(-17, 70);
+  for (const sg of [-1, 1]) add(new THREE.BoxGeometry(TL, TH, 0.3), sea, V(0, TH / 2, sg * TW / 2), 0, tun).userData.solid = true;
+  add(new THREE.BoxGeometry(TL + 0.6, 0.5, TW + 0.6), white, V(0, TH + 0.25, 0), 0, tun).userData.solid = true;
+  const endS = new THREE.Shape(); endS.moveTo(-TW / 2, 0); endS.lineTo(TW / 2, 0); endS.lineTo(TW / 2, TH); endS.lineTo(-TW / 2, TH); endS.lineTo(-TW / 2, 0);
+  const hole = new THREE.Path(); hole.moveTo(-TR, 0); hole.lineTo(-TR, 0.01); hole.absarc(0, 0, TR, Math.PI, 0, true); hole.lineTo(TR, 0); hole.lineTo(-TR, 0); endS.holes.push(hole);
+  for (const sg of [-1, 1]) { const g = new THREE.ExtrudeGeometry(endS, { depth: 0.5, bevelEnabled: false, curveSegments: 24 }); g.rotateY(Math.PI / 2); add(g, white, V(sg * TL / 2 - 0.25, 0, 0), 0, tun).userData.solid = true; }
+  const tg = new THREE.CylinderGeometry(TR, TR, TL, 40, 1, true); tg.rotateZ(Math.PI / 2);
+  const tube = add(tg, glass, V(0, 0, 0), 0, tun); tube.castShadow = false; tube.renderOrder = 3; tube.userData.solid = true;
+  for (let k = -3; k <= 3; k++) { const rg = new THREE.TorusGeometry(TR + 0.06, 0.09, 8, 40, Math.PI); const r = add(rg, white, V(k * 5.2, 0, 0), 0, tun); r.rotation.y = Math.PI / 2; }
+  const tl = new THREE.PointLight(0x7fc4ff, 500, 30, 2); tl.position.set(0, 2.2, 0); tl.userData.base = 500; tun.add(tl);
+  finish(tun);
+  // 隧道外的魚：小魚、鯊魚、魟魚，沿長向來回游，保持在玻璃管外
+  const mkSwim = (geo, mat, n, sMin, sMax, vMin, vMax) => {
+    const im = new THREE.InstancedMesh(geo, mat, n), d = [];
+    for (let i = 0; i < n; i++) { const al = (0.14 + R() * 0.72) * Math.PI, ro = TR + 0.8 + R() * 2.4; d.push({ y: Math.min(TH - 0.7, ro * Math.sin(al)), z: THREE.MathUtils.clamp(ro * Math.cos(al), -TW / 2 + 0.8, TW / 2 - 0.8), x0: R() * TL, v: (vMin + R() * (vMax - vMin)) * (R() < 0.5 ? 1 : -1), s: sMin + R() * (sMax - sMin), p: R() * 6.28 }); }
+    im.frustumCulled = false; im.renderOrder = 1; tun.add(im); return { im, d };
+  };
+  const fishM = new THREE.MeshStandardMaterial({ color: 0xcfd9e2, roughness: 0.25, metalness: 0.7, emissive: 0x35506a, emissiveIntensity: 0.6 });
+  const greyM = new THREE.MeshStandardMaterial({ color: 0x6f7d88, roughness: 0.5, emissive: 0x1d2a33, emissiveIntensity: 0.6 });
+  const fg = new THREE.SphereGeometry(1, 10, 6); fg.scale(0.42, 0.15, 0.07);
+  const sg2 = new THREE.SphereGeometry(1, 14, 8); sg2.scale(1.5, 0.3, 0.3);
+  const rg2 = new THREE.SphereGeometry(1, 14, 8); rg2.scale(0.95, 0.09, 1.25);
+  const swim = [mkSwim(fg, fishM, 90, 0.6, 1.3, 0.5, 1.4), mkSwim(sg2, greyM, 6, 0.8, 1.2, 0.5, 0.9), mkSwim(rg2, greyM, 4, 0.8, 1.2, 0.3, 0.6)];
+
+  // ── 水母咖啡座（北廳東翼）：圓桌＋曲木椅，靠北側玻璃看港景 ──
+  const cafe = new THREE.Group(); cafe.position.copy(B(38, 34, F)); cafe.rotation.y = Math.atan2(-6.5, 72);
+  const tabs = [], chs = [];
+  for (let i = -2; i <= 2; i++) for (let j = -1; j <= 1; j++) { const x = i * 3.6 + (j ? 0.9 : 0), z = j * 3.4; tabs.push([x, z]); for (let k = 0; k < 3; k++) { const a = k * 2.094 + i + j; chs.push([x + Math.cos(a) * 0.95, z + Math.sin(a) * 0.95, a]); } }
+  const inst = (geo, mat, list, y, f) => { const im = new THREE.InstancedMesh(geo, mat, list.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(); list.forEach((t, i) => { m.compose(V(t[0], y, t[1]), q.setFromEuler(e.set(0, f ? -t[2] + Math.PI / 2 : 0, 0)), V(1, 1, 1)); im.setMatrixAt(i, m); }); im.castShadow = true; im.receiveShadow = true; cafe.add(im); return im; };
+  inst(new THREE.CylinderGeometry(0.48, 0.48, 0.05, 24), white, tabs, 0.74);
+  inst(new THREE.CylinderGeometry(0.08, 0.26, 0.72, 16), white, tabs, 0.36);
+  inst(new THREE.CylinderGeometry(0.21, 0.19, 0.04, 16), wood, chs, 0.46);
+  inst(new THREE.CylinderGeometry(0.02, 0.02, 0.46, 6).translate(0, 0, 0), wood, chs.flatMap(([x, z, a]) => [[x + 0.15, z + 0.15], [x - 0.15, z + 0.15], [x + 0.15, z - 0.15], [x - 0.15, z - 0.15]]), 0.23);
+  const backG = new THREE.TorusGeometry(0.2, 0.014, 6, 16, Math.PI); backG.translate(0, 0, -0.18);
+  inst(backG, wood, chs, 0.48, true);
+  const bar = add(new THREE.BoxGeometry(7.5, 1.1, 0.9), white, V(-1, 0.55, -7.2), 0, cafe); bar.userData.solid = true;
+  add(new THREE.BoxGeometry(7.7, 0.05, 1.05), wood, V(-1, 1.12, -7.2), 0, cafe);
+  finish(cafe);
+
+  // ── 售票處（主入口東側）：長櫃台＋背後的資訊螢幕牆 ──
+  const tk = new THREE.Group(); tk.position.copy(B(11, -18.5, F)); tk.rotation.y = Math.atan2(-15, 82);
+  add(new THREE.BoxGeometry(9, 1.1, 1.1), white, V(0, 0.55, 0), 0, tk).userData.solid = true;
+  add(new THREE.BoxGeometry(9.6, 3.0, 0.3), white, V(0, 1.5, 1.9), 0, tk).userData.solid = true;
+  const scr = canvasTex(1024, 256, (g, w, h) => { g.fillStyle = '#0e2a40'; g.fillRect(0, 0, w, h); g.fillStyle = '#eaf6fd'; g.font = '700 84px "Microsoft JhengHei","PingFang TC",sans-serif'; g.textBaseline = 'middle'; g.fillText('售票處　Ticketing', 40, 86); g.font = '500 44px "Microsoft JhengHei","PingFang TC",sans-serif'; g.fillStyle = '#9fd0e6'; g.fillText('全票　學生票　親子票　團體票', 44, 190); }, { repeat: false });
+  const scrM = glowReg(new THREE.MeshStandardMaterial({ map: scr, emissiveMap: scr, roughness: 0.4, emissive: 0xffffff }), 0xffffff, 0.25); scrM.userData.base = 0.55;
+  add(new THREE.PlaneGeometry(8.4, 2.1), scrM, V(0, 1.75, 1.73), 0, tk).rotation.y = Math.PI;
+  finish(tk);
+
+  // ── 禮品店（大廳東翼南側）：拱門開口的白色量體，裡面暖光與貨架 ──
+  const shop = new THREE.Group(); shop.position.copy(B(31, -22.6, F)); shop.rotation.y = Math.atan2(-15, 82);
+  const SW = 13, SH = 4.6, fr = new THREE.Shape(); fr.moveTo(-SW / 2, 0); fr.lineTo(SW / 2, 0); fr.lineTo(SW / 2, SH); fr.lineTo(-SW / 2, SH); fr.lineTo(-SW / 2, 0);
+  const ah = new THREE.Path(); ah.moveTo(-3.6, 0); ah.lineTo(-3.6, 0.01); ah.absellipse(0, 0, 3.6, 3.9, Math.PI, 0, true); ah.lineTo(3.6, 0); ah.lineTo(-3.6, 0); fr.holes.push(ah);
+  add(new THREE.ExtrudeGeometry(fr, { depth: 0.6, bevelEnabled: false, curveSegments: 28 }), white, V(0, 0, -0.6), 0, shop).userData.solid = true;
+  add(new THREE.BoxGeometry(SW, SH, 0.3), warm, V(0, SH / 2, 4.6), 0, shop).userData.solid = true;
+  for (const sg of [-1, 1]) add(new THREE.BoxGeometry(0.3, SH, 5.2), white, V(sg * SW / 2, SH / 2, 2), 0, shop).userData.solid = true;
+  add(new THREE.BoxGeometry(SW + 0.3, 0.3, 5.5), white, V(0, SH + 0.15, 2), 0, shop);
+  for (let k = 0; k < 3; k++) for (const x of [-4.2, 0, 4.2]) add(new THREE.BoxGeometry(3.2, 0.06, 0.5), wood, V(x, 0.9 + k * 0.75, 4.1), 0, shop);
+  const itemG = new THREE.BoxGeometry(0.22, 0.3, 0.22), items = new THREE.InstancedMesh(itemG, new THREE.MeshStandardMaterial({ roughness: 0.6 }), 90), m4 = new THREE.Matrix4(), col = new THREE.Color();
+  for (let i = 0; i < 90; i++) { const sh = i % 9, k = Math.floor(sh / 3), x = [-4.2, 0, 4.2][sh % 3] + (Math.floor(i / 9) - 4.5) * 0.32; m4.makeTranslation(x, 1.08 + k * 0.75, 4.1); items.setMatrixAt(i, m4); items.setColorAt(i, col.setHSL(0.52 + R() * 0.12, 0.35, 0.45 + R() * 0.3)); }
+  shop.add(items);
+  const sgn = canvasTex(1024, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = '#16324a'; g.font = '700 100px "Microsoft JhengHei","PingFang TC",sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillText('禮品店　Museum Shop', w / 2, 84); }, { repeat: false });
+  add(new THREE.PlaneGeometry(6.4, 1.0), new THREE.MeshStandardMaterial({ map: sgn, transparent: true, roughness: 0.5 }), V(0, 4.0, -0.62), 0, shop).rotation.y = Math.PI;
+  const sl = new THREE.PointLight(0xffd9a8, 260, 16, 2); sl.position.set(0, 3.6, 2.2); sl.userData.base = 260; shop.add(sl);
+  finish(shop);
+
+  // ── 展示櫃（鯨魚下方圍成一圈）：白色台座＋玻璃罩＋貝殼標本 ──
+  const C0 = B(40, -14, F), spec = new THREE.MeshStandardMaterial({ color: 0xe8c9a8, roughness: 0.35 });
+  for (let k = 0; k < 7; k++) {
+    const a = k / 7 * Math.PI * 2 + 0.3, p = V(C0.x + Math.cos(a) * 8.5, F, C0.z + Math.sin(a) * 6.2);
+    const b = add(new THREE.BoxGeometry(1.2, 0.95, 1.2), white, p.clone().setY(F + 0.475)); b.updateMatrixWorld(true); addSolid(b);
+    const gb = add(new THREE.BoxGeometry(1.1, 1.0, 1.1), glass, p.clone().setY(F + 1.45)); gb.castShadow = false; gb.renderOrder = 3;
+    const sp = add(new THREE.ConeGeometry(0.22, 0.5, 14), spec, p.clone().setY(F + 1.22)); sp.rotation.z = 1.2 + k; sp.scale.set(1, 1, 0.7);
+  }
+  // ── 指標牌：深藍立牌、白字 ──
+  const SIGNS = [[1.5, -17.2, '售票處 →', 'Ticketing'], [-9.5, -19.6, '← 服務台', 'Information'], [-12, -4, '← 圓柱水族缸', 'Cylinder Aquarium'], [20, -9, '鯨魚廳．禮品店 →', 'Whale Hall · Shop'], [-2, 14, '海底隧道．水母咖啡 ↑', 'Ocean Tunnel · Café']];
+  for (const [x, y, zh, en] of SIGNS) {
+    const t = canvasTex(512, 1024, (g, w, h) => { g.fillStyle = '#16324a'; g.fillRect(0, 0, w, h); g.fillStyle = '#00A1E9'; g.fillRect(0, 0, w, 26); g.fillStyle = '#f2f6f8'; g.textAlign = 'center'; g.textBaseline = 'middle'; let fs = 92; g.font = `700 ${fs}px "Microsoft JhengHei","PingFang TC",sans-serif`; while (g.measureText(zh).width > w - 60 && fs > 40) { fs -= 4; g.font = `700 ${fs}px "Microsoft JhengHei","PingFang TC",sans-serif`; } g.fillText(zh, w / 2, 250); g.fillStyle = '#b9d6e4'; g.font = '500 40px "Segoe UI",Arial,sans-serif'; g.fillText(en, w / 2, 350); }, { repeat: false });
+    const face = new THREE.MeshStandardMaterial({ map: t, roughness: 0.5 });
+    const s = add(new THREE.BoxGeometry(1.15, 2.5, 0.16), [navy, navy, navy, navy, face, face], B(x, y, F + 1.25)); s.updateMatrixWorld(true); addSolid(s);
+  }
+  // ── 夾層玻璃欄杆（圓柱水族缸旁的環形夾層外緣） ──
+  const AQ = B(-36, -1, F), rail = add(new THREE.CylinderGeometry(10.95, 10.95, 1.1, 64, 1, true, Math.PI * 0.65, Math.PI * 1.4), glass, V(AQ.x, F + 9 + 0.55, AQ.z)); rail.castShadow = false; rail.renderOrder = 3; rail.updateMatrixWorld(true); addSolid(rail);
+
+  const sub = [tl, sl];
+  timeHooks.push((name) => { const f = { day: 1, dusk: 0.5, night: 0.22 }[name] ?? 1; for (const l of sub) l.intensity = l.userData.base * f; });
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3();
+  updaters.push((dt, t) => {
+    for (const { im, d } of swim) {
+      for (let i = 0; i < d.length; i++) { const f = d[i], x = ((((f.x0 + t * f.v) % TL) + TL) % TL) - TL / 2; p.set(x, f.y + Math.sin(t * 0.5 + f.p) * 0.25, f.z); e.set(0, (f.v > 0 ? 0 : Math.PI) + Math.sin(t * 5 + f.p) * 0.1, 0); m.compose(p, q.setFromEuler(e), s.setScalar(f.s)); im.setMatrixAt(i, m); }
+      im.instanceMatrix.needsUpdate = true;
+    }
+  });
+}
+
 // ───────── 人物：橘色透明的 3D 量體，手腳擺動行走 ─────────
 function people(ctx) {
   const { THREE, scene, B, QUAY, updaters, rng } = ctx, probe = makeProbe(ctx);
@@ -234,7 +347,7 @@ function people(ctx) {
     [[-36, -42], [-25, -40], [-6, -42], [3, -50], [-4, -54.5], [-30, -54.5], [-36, -42]],
     [[-3.4, -17], [10, -12], [27, -13], [42, -6], [52, -14]],
     [[177, -120], [177, 262]], [[196, 250], [196, -110]], [[-104, 101], [104, 101]], [[124, 30], [170, 30]], [[-120, -54], [-66, -54.5]],
-    [[-40, 34], [0, 37], [44, 36]],
+    [[-56, 44.6], [-51.4, 43.4], [-10.6, 33.6], [6, 37.5], [26, 39.5], [50, 37]],
   ];
   const COUNT = [6, 6, 4, 5, 9, 5, 5, 5, 4, 4, 4, 2, 3, 4];
   const paths = [];

@@ -1,7 +1,7 @@
 // 海螺館 3D 瀏覽：主程式
 // 座標：three 的 x＝東、y＝上、z＝南；Blender 模型座標 (x, y, z) 對應 three (x, z, -y)
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from './vendor/three-mesh-bvh.module.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { Sky } from 'three/addons/objects/Sky.js';
@@ -11,6 +11,9 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;      // 碰撞偵測加速
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 const EYE = 1.7, QUAY = 2.0;
 const B = (x, y, z = 0) => new THREE.Vector3(x, z, -y);
 const $ = (id) => document.getElementById(id);
@@ -139,6 +142,18 @@ function glowTexture() {
   }, { repeat: false });
 }
 
+// 大廳地坪：磨石子＋流動的波紋色帶（一張貼圖鋪 40 公尺）
+function terrazzoTexture() {
+  const N = 1024, R = rng(8);
+  const t = canvasTex(N, N, (g) => {
+    g.fillStyle = '#dcdad4'; g.fillRect(0, 0, N, N);
+    const band = (y0, amp, w, col) => { g.beginPath(); for (let x = 0; x <= N; x += 8) g.lineTo(x, y0 + Math.sin(x / N * Math.PI * 2 * 2) * amp + Math.sin(x / N * Math.PI * 2 * 3 + 1) * amp * 0.4); for (let x = N; x >= 0; x -= 8) g.lineTo(x, y0 + w + Math.sin(x / N * Math.PI * 2 * 2 + 0.6) * amp + Math.sin(x / N * Math.PI * 2 * 3 + 1.7) * amp * 0.4); g.closePath(); g.fillStyle = col; g.fill(); };
+    for (const off of [0, N]) { band(120 - off, 46, 90, '#a9b8c1'); band(300 - off, 60, 50, '#c3ccd1'); band(520 - off, 50, 120, '#98abb8'); band(760 - off, 64, 70, '#b9c4ca'); band(930 - off, 40, 60, '#a3b3bd'); band(120 + N - off, 46, 90, '#a9b8c1'); }
+    for (let i = 0; i < 9000; i++) { const v = R(); g.fillStyle = v < 0.5 ? 'rgba(255,255,255,.55)' : (v < 0.8 ? 'rgba(90,96,102,.5)' : 'rgba(170,150,120,.5)'); g.fillRect(R() * N, R() * N, 1 + R() * 2.2, 1 + R() * 2.2); }
+  });
+  return t;
+}
+
 // ───────── 材質 ─────────
 const st = shellTextures(), gt = glazingTextures();
 const GLOW = [];        // 夜間要發光的材質：{ m, color, k }
@@ -147,8 +162,10 @@ const glowReg = (m, color, k) => { m.emissive = new THREE.Color(color); m.emissi
 const M = {
   shell: new THREE.MeshStandardMaterial({ color: 0xffffff, map: st.map, normalMap: st.nrm, normalScale: new THREE.Vector2(0.9, 0.9), roughnessMap: st.rough, roughness: 1, metalness: 0.0 }),
   band: new THREE.MeshStandardMaterial({ color: 0xe9e7e1, roughness: 0.62 }),
-  glass: glowReg(new THREE.MeshStandardMaterial({ map: gt.map, roughnessMap: gt.rm, metalnessMap: gt.rm, roughness: 1, metalness: 1, envMapIntensity: 1.5, emissiveMap: gt.emi }), 0xffffff, 1.5),
-  curtain: glowReg(new THREE.MeshStandardMaterial({ map: gt.alpha, transparent: true, roughness: 0.06, metalness: 0.35, envMapIntensity: 1.6, side: THREE.DoubleSide, emissiveMap: gt.emi }), 0xffffff, 1.1),
+  glass: new THREE.MeshStandardMaterial({ map: gt.alpha, transparent: true, depthWrite: false, roughness: 0.04, metalness: 0.6, envMapIntensity: 1.9, side: THREE.DoubleSide }),
+  curtain: glowReg(new THREE.MeshStandardMaterial({ map: gt.alpha, transparent: true, depthWrite: false, roughness: 0.05, metalness: 0.45, envMapIntensity: 1.7, side: THREE.DoubleSide, emissiveMap: gt.emi }), 0xffffff, 0.2),
+  core: glowReg(new THREE.MeshStandardMaterial({ color: 0xe9e2d2, roughness: 0.8 }), 0xffcf8f, 1.15),
+  lobby: new THREE.MeshStandardMaterial({ map: terrazzoTexture(), roughness: 0.22, metalness: 0.0, envMapIntensity: 1.2 }),
   quay: new THREE.MeshStandardMaterial({ color: 0xb9b6ae, roughness: 0.85 }),
   road: new THREE.MeshStandardMaterial({ color: 0x55565a, roughness: 0.95 }),
   logo: glowReg(new THREE.MeshStandardMaterial({ color: 0x00A1E9, roughness: 0.28, metalness: 0.55 }), 0x00A1E9, 1.3),
@@ -259,7 +276,7 @@ function applyTime(name) {
   water.material.uniforms.waterColor.value.set(T.water);
   bloom.strength = T.bloom[0]; bloom.threshold = T.bloom[1];
   glowLevel = T.glow;
-  for (const g of GLOW) g.m.emissiveIntensity = g.k * glowLevel;
+  for (const g of GLOW) g.m.emissiveIntensity = (g.m.userData.base || 0) + g.k * glowLevel;
   for (const f of timeHooks) f(name, T);
   document.querySelectorAll('[data-time]').forEach((b) => b.classList.toggle('on', b.dataset.time === name));
 }
@@ -272,7 +289,12 @@ async function setTime(name) {
 document.querySelectorAll('[data-time]').forEach((b) => b.onclick = () => { b.blur(); setTime(b.dataset.time); });
 
 // ───────── 主模型 ─────────
-const walkables = [], colliders = [];
+const walkables = [], solids = [], colliders = solids, solidSet = new Set();
+function addSolid(o) {                                     // 登記成不能穿過的實體，並建立碰撞加速結構
+  if (solidSet.has(o)) return; solidSet.add(o);
+  if (!o.geometry.boundsTree) o.geometry.computeBoundsTree();
+  solids.push(o);
+}
 function planarUV(geo, s) {                               // 地面類：依世界座標平鋪
   const p = geo.attributes.position, uv = new Float32Array(p.count * 2);
   for (let i = 0; i < p.count; i++) { uv[i * 2] = p.getX(i) / s; uv[i * 2 + 1] = p.getZ(i) / s; }
@@ -306,7 +328,7 @@ function buildCity(src, group) {
     const [side, roof] = cityMats[Math.floor(R() * cityMats.length)];
     const m = new THREE.Mesh(g, [side, side, roof, roof, side, side]);
     m.position.copy(ct); m.castShadow = true; m.receiveShadow = true; m.name = o.name;
-    group.add(m); colliders.push(m); o.visible = false;
+    group.add(m); m.updateMatrixWorld(true); addSolid(m); o.visible = false;
   }
 }
 async function loadMain() {
@@ -317,18 +339,21 @@ async function loadMain() {
     if (!o.isMesh) return;
     const n = o.name; o.castShadow = true; o.receiveShadow = true;
     if (n.startsWith('walk_')) walkables.push(o);
-    if (n.startsWith('shell_')) { o.material = M.shell; colliders.push(o); }
-    else if (n.includes('_glass')) { wallUV(o.geometry); o.material = M.glass; colliders.push(o); }
-    else if (n.startsWith('body_')) { o.material = M.band; colliders.push(o); }
-    else if (n.startsWith('curtain_')) { o.material = M.curtain; o.castShadow = false; colliders.push(o); }
+    if (n.startsWith('core_')) o.material = M.core;
+    else if (n.startsWith('lobby_floor')) { planarUV(o.geometry, 40); o.material = M.lobby; o.castShadow = false; }
+    else if (n.startsWith('shell_')) o.material = M.shell;
+    else if (n.includes('_glass')) { wallUV(o.geometry); o.material = M.glass; o.castShadow = false; o.renderOrder = 3; }
+    else if (n.startsWith('body_')) o.material = M.band;
+    else if (n.startsWith('curtain_')) { o.material = M.curtain; o.castShadow = false; o.renderOrder = 3; }
     else if (n.startsWith('walk_') || n.startsWith('pier_')) { planarUV(o.geometry, 3.65); o.material = M.quay; }
     else if (n.startsWith('road_')) { planarUV(o.geometry, 4.2); o.material = M.road; }
     else if (n.startsWith('city_')) city.push(o);
-    else if (n === 'logo_frame') { o.material = M.logo; colliders.push(o); }
+    else if (n === 'logo_frame') o.material = M.logo;
     else if (n === 'logo_base') o.material = M.logoBase;
-    else if (n === 'logo_wall') { o.material = M.logoWall; colliders.push(o); }
+    else if (n === 'logo_wall') o.material = M.logoWall;
   });
   scene.add(g.scene);
+  g.scene.traverse((o) => { if (o.isMesh && !o.name.startsWith('city_')) addSolid(o); });
   const cg = new THREE.Group(); scene.add(cg); buildCity(city, cg);
 }
 
@@ -395,117 +420,130 @@ function addLamps() {
   timeHooks.push((name, T) => { pool.opacity = 0.5 * Math.min(1, T.glow); halo.opacity = 0.9 * Math.min(1, T.glow); });
 }
 
-// ───────── 控制 ─────────
-const orbit = new OrbitControls(camera, renderer.domElement);
-orbit.enableDamping = true; orbit.dampingFactor = 0.08;
-orbit.minDistance = 12; orbit.maxDistance = 1100; orbit.maxPolarAngle = THREE.MathUtils.degToRad(88.5);
-const VIEWS = {
+// ───────── 瀏覽：自由飛行與步行（撞到東西不能穿過，會沿表面滑動；Shift 三倍速） ─────────
+const VIEWS = {   // three 座標：x 東、y 上、z 南
   aerial: { p: [92, 135, 190], t: [8, 6, 12] },
   top: { p: [0, 430, 1], t: [0, 0, 0] },
   west: { p: [-250, 28, 60], t: [0, 14, 0] },
   north: { p: [40, 70, -230], t: [0, 10, 0] },
   entry: { p: [-40, 7.5, 104], t: [-10, 12, 20] },
   roof: { p: [44, 58, 96], t: [14, 26, 34] },
+  lobby: { p: [-3.4, 4.2, 14], t: [-30, 9, 2] },
 };
-function setView(k) {
-  if (mode !== 'orbit') setMode('orbit');
-  const v = VIEWS[k]; camera.position.set(...v.p); orbit.target.set(...v.t); orbit.update();
-}
+const RADIUS = 0.6, FLY = 14, WALK = 3.5, BOOST = 3;
 const keys = {};
-let mode = 'orbit';
+let mode = 'fly';
 const WALK_START = { p: [-11, QUAY + EYE, 150], t: [-3, 10, 40] };
-const walkPos = new THREE.Vector3(...WALK_START.p);
 const eul = new THREE.Euler(0, 0, 0, 'YXZ');
-let walkReady = false;
 const help = $('help'), tip = $('walkTip');
 const HELP = {
-  orbit: '環繞：左鍵拖曳旋轉、右鍵拖曳平移、滾輪縮放（手機：單指旋轉、雙指縮放平移）',
-  walk: '步行：W A S D 或方向鍵移動、Shift 加速、按住左鍵拖曳轉頭（Q、E 也可左右轉）、R 回到起點；可走範圍為碼頭平台、人行橋與岸邊步道',
+  fly: '飛行：W A S D 前後左右、E／空白鍵上升、Q 下降、按住滑鼠左鍵拖曳轉向、滾輪前進後退、Shift 三倍速；撞到東西會停下或沿著表面滑過去',
+  walk: '步行：W A S D 或方向鍵移動、按住滑鼠左鍵拖曳轉頭、Shift 三倍速、R 回到起點；先飛到想去的地方再按「步行」會就地落地',
 };
-function walkReset() {
-  camera.position.set(...WALK_START.p); camera.lookAt(...WALK_START.t);
-  eul.setFromQuaternion(camera.quaternion, 'YXZ'); eul.z = 0; walkPos.copy(camera.position);
+const TIP = {
+  fly: 'W A S D 飛行　E／空白鍵上升　Q 下降<br>按住滑鼠左鍵拖曳轉向　滾輪前進後退<br>Shift 三倍速',
+  walk: 'W A S D（或方向鍵）移動　Shift 三倍速<br>按住滑鼠左鍵拖曳轉頭<br>R 回到起點',
+};
+function lookFrom(p, t) {
+  camera.position.set(...p); camera.lookAt(...t);
+  eul.setFromQuaternion(camera.quaternion, 'YXZ'); eul.z = 0; camera.quaternion.setFromEuler(eul);
+}
+function setView(k) { if (mode !== 'fly') setMode('fly'); lookFrom(VIEWS[k].p, VIEWS[k].t); }
+const ray = new THREE.Raycaster(); ray.firstHitOnly = true;
+const fwd = new THREE.Vector3(), right = new THREE.Vector3(), mv = new THREE.Vector3(), DOWN = new THREE.Vector3(0, -1, 0),
+  dir = new THREE.Vector3(), nrm = new THREE.Vector3(), from = new THREE.Vector3(), prev = new THREE.Vector3(), cand = new THREE.Vector3(), yawOnly = new THREE.Euler();
+function groundBelow(far) {
+  from.copy(camera.position); from.y += 1; ray.set(from, DOWN); ray.far = far;
+  const h = ray.intersectObjects(walkables, false)[0]; return h ? h.point.y : null;
 }
 function setMode(m) {
   mode = m;
-  $('mOrbit').classList.toggle('on', m === 'orbit'); $('mWalk').classList.toggle('on', m === 'walk');
-  help.textContent = HELP[m];
+  $('mFly').classList.toggle('on', m === 'fly'); $('mWalk').classList.toggle('on', m === 'walk');
+  help.textContent = HELP[m]; tip.firstElementChild.innerHTML = TIP[m]; tip.style.display = 'flex';
   for (const k in keys) keys[k] = false;
   if (m === 'walk') {
-    orbit.enabled = false; camera.fov = 68; camera.updateProjectionMatrix();
-    if (!walkReady) { walkReset(); walkReady = true; } else { camera.position.copy(walkPos); camera.quaternion.setFromEuler(eul); }
-    tip.style.display = 'flex';
-  } else {
-    if (document.pointerLockElement) document.exitPointerLock();
-    tip.style.display = 'none'; orbit.enabled = true; camera.fov = 50; camera.updateProjectionMatrix();
-  }
+    const g = groundBelow(900);                            // 就地落到腳下的地面；腳下沒有地面就回起點
+    if (g !== null) { camera.position.y = g + EYE; eul.x = THREE.MathUtils.clamp(eul.x, -0.6, 0.6); camera.quaternion.setFromEuler(eul); }
+    else lookFrom(WALK_START.p, WALK_START.t);
+    camera.fov = 68;
+  } else camera.fov = 55;
+  camera.updateProjectionMatrix();
 }
-$('mOrbit').onclick = (e) => { e.currentTarget.blur(); setMode('orbit'); setView('aerial'); };
+$('mFly').onclick = (e) => { e.currentTarget.blur(); setMode('fly'); };
 $('mWalk').onclick = (e) => { e.currentTarget.blur(); setMode('walk'); };
-document.querySelectorAll('[data-view]').forEach((b) => b.onclick = () => { b.blur(); setView(b.dataset.view); });
+document.querySelectorAll('[data-view]').forEach((b) => b.onclick = () => { b.blur(); setView(b.dataset.view); tip.style.display = 'none'; });
 
 const cv = renderer.domElement;
 let dragging = false, lastX = 0, lastY = 0;
 function turn(dx, dy) {
-  eul.y -= dx * 0.0026; eul.x = THREE.MathUtils.clamp(eul.x - dy * 0.0026, -1.35, 1.35);
+  eul.y -= dx * 0.0026; eul.x = THREE.MathUtils.clamp(eul.x - dy * 0.0026, -1.5, 1.5);
   camera.quaternion.setFromEuler(eul);
 }
 cv.addEventListener('pointerdown', (e) => {
-  if (mode !== 'walk') return;
   dragging = true; lastX = e.clientX; lastY = e.clientY; tip.style.display = 'none';
   try { cv.setPointerCapture(e.pointerId); } catch (_) {}
 });
 cv.addEventListener('pointermove', (e) => {
-  if (mode !== 'walk') return;
   if (document.pointerLockElement === cv) { turn(e.movementX, e.movementY); return; }
   if (!dragging) return;
   turn(e.clientX - lastX, e.clientY - lastY); lastX = e.clientX; lastY = e.clientY;
 });
 addEventListener('pointerup', () => { dragging = false; });
-cv.addEventListener('dblclick', () => {
-  if (mode !== 'walk' || !cv.requestPointerLock) return;
+cv.addEventListener('dblclick', () => {                    // 連點兩下：瀏覽器允許時鎖定滑鼠自由轉向（Esc 解除）
+  if (!cv.requestPointerLock) return;
   try { const p = cv.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (_) {}
 });
-const MOVE_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
-const fresh = {}, releaseLater = {};      // 快速點按（按下放開都在同一格內）也要至少走一步
+cv.addEventListener('wheel', (e) => {
+  e.preventDefault(); if (mode !== 'fly') return;
+  camera.getWorldDirection(fwd); moveWithCollision(mv.copy(fwd).multiplyScalar(-Math.sign(e.deltaY) * 7 * ((keys.ShiftLeft || keys.ShiftRight) ? BOOST : 1)));
+}, { passive: false });
+const MOVE_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'KeyC', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
+const fresh = {}, releaseLater = {};      // 快速點按（按下放開都在同一格內）也要至少動一步
 addEventListener('keydown', (e) => {
   keys[e.code] = true; if (!e.repeat) fresh[e.code] = true;
-  if (mode !== 'walk') return;
   if (MOVE_KEYS.includes(e.code)) { e.preventDefault(); tip.style.display = 'none'; }
-  if (e.code === 'KeyR') walkReset();
+  if (e.code === 'KeyR' && mode === 'walk') lookFrom(WALK_START.p, WALK_START.t);
 });
 addEventListener('keyup', (e) => { if (fresh[e.code]) releaseLater[e.code] = true; else keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
-const ray = new THREE.Raycaster(), fwd = new THREE.Vector3(), right = new THREE.Vector3(), mv = new THREE.Vector3(),
-  DOWN = new THREE.Vector3(0, -1, 0), tryDir = new THREE.Vector3(), from = new THREE.Vector3(), yawOnly = new THREE.Euler();
-function canGo(dx, dz) {
-  const len = Math.hypot(dx, dz); if (len < 1e-6) return null;
-  tryDir.set(dx / len, 0, dz / len);
-  ray.set(camera.position, tryDir); ray.far = len + 0.7;
-  if (ray.intersectObjects(colliders, false).length) return null;
-  from.set(camera.position.x + dx, camera.position.y + 1, camera.position.z + dz);
-  ray.set(from, DOWN); ray.far = 8;
-  const hit = ray.intersectObjects(walkables, false)[0];
-  return hit ? hit.point.y : null;
+// 帶碰撞的移動：前方有實體就停在它前面，剩下的位移沿著表面滑動（最多三次）
+function moveWithCollision(delta) {
+  for (let it = 0; it < 3; it++) {
+    const len = delta.length(); if (len < 1e-5) return;
+    dir.copy(delta).divideScalar(len);
+    ray.set(camera.position, dir); ray.far = len + RADIUS;
+    const hit = ray.intersectObjects(solids, false)[0];
+    if (!hit) { camera.position.add(delta); return; }
+    nrm.copy(hit.face.normal).transformDirection(hit.object.matrixWorld); if (nrm.dot(dir) > 0) nrm.negate();
+    const allow = Math.max(0, hit.distance - RADIUS);
+    camera.position.addScaledVector(dir, allow);
+    delta.addScaledVector(dir, -allow); delta.addScaledVector(nrm, -delta.dot(nrm));
+  }
 }
-function walkStep(dt) {
-  if (keys.KeyQ) turn(-dt * 520, 0);
-  if (keys.KeyE) turn(dt * 520, 0);
-  fwd.set(0, 0, -1).applyEuler(yawOnly.set(0, eul.y, 0)); right.set(-fwd.z, 0, fwd.x);
+function navStep(dt) {
+  const tk = (keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0); if (tk) turn(-tk * dt * 420, 0);
+  if (mode === 'fly') camera.getWorldDirection(fwd); else fwd.set(0, 0, -1).applyEuler(yawOnly.set(0, eul.y, 0));
+  right.set(-fwd.z, 0, fwd.x); if (right.lengthSq() < 1e-6) right.set(1, 0, 0).applyEuler(yawOnly.set(0, eul.y, 0)); right.normalize();
   mv.set(0, 0, 0);
   if (keys.KeyW || keys.ArrowUp) mv.add(fwd);
   if (keys.KeyS || keys.ArrowDown) mv.sub(fwd);
-  if (keys.KeyD || keys.ArrowRight) mv.add(right);
-  if (keys.KeyA || keys.ArrowLeft) mv.sub(right);
+  if (keys.KeyD) mv.add(right);
+  if (keys.KeyA) mv.sub(right);
+  if (mode === 'fly') { if (keys.KeyE || keys.Space) mv.y += 1; if (keys.KeyQ || keys.KeyC) mv.y -= 1; }
   if (mv.lengthSq() === 0) return;
-  mv.normalize().multiplyScalar(((keys.ShiftLeft || keys.ShiftRight) ? 16 : 5) * dt);
-  for (const [dx, dz] of [[mv.x, mv.z], [mv.x, 0], [0, mv.z]]) {
-    const gy = canGo(dx, dz);
-    if (gy === null) continue;
-    camera.position.set(camera.position.x + dx, THREE.MathUtils.lerp(camera.position.y, gy + EYE, 0.3), camera.position.z + dz);
-    walkPos.copy(camera.position);
+  mv.normalize().multiplyScalar((mode === 'fly' ? FLY : WALK) * ((keys.ShiftLeft || keys.ShiftRight) ? BOOST : 1) * dt);
+  if (mode === 'fly') {
+    moveWithCollision(mv);
+    camera.position.y = THREE.MathUtils.clamp(camera.position.y, 0.9, 800);       // 不潛入海面
+    const r = Math.hypot(camera.position.x, camera.position.z); if (r > 1600) { camera.position.x *= 1600 / r; camera.position.z *= 1600 / r; }
     return;
+  }
+  for (const [dx, dz] of [[mv.x, mv.z], [mv.x, 0], [0, mv.z]]) {                   // 步行：腳下要有地面，走不過去就沿邊滑動
+    prev.copy(camera.position); moveWithCollision(cand.set(dx, 0, dz));
+    const g = groundBelow(8);
+    if (g !== null) { camera.position.y = THREE.MathUtils.lerp(camera.position.y, g + EYE, 0.35); return; }
+    camera.position.copy(prev);
   }
 }
 addEventListener('resize', () => {
@@ -513,17 +551,17 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
 });
 
-// ───────── 動態物件（人、船、植栽）由 extras.js 掛進來 ─────────
+// ───────── 景觀、植栽、室內、人物、船舶由 scene_extras.js 掛進來 ─────────
 const updaters = [];
-const ctx = { THREE, scene, camera, renderer, B, QUAY, M, GLOW, glowReg, timeHooks, updaters, colliders, walkables, rng, canvasTex, MAXA, getGlow: () => glowLevel, getTime: () => curTime };
+const ctx = { THREE, scene, camera, renderer, B, QUAY, M, GLOW, glowReg, timeHooks, updaters, solids, addSolid, colliders, walkables, rng, canvasTex, MAXA, getGlow: () => glowLevel, getTime: () => curTime };
 
 // ───────── 啟動 ─────────
 async function start() {
   try { skyInfo = await (await fetch('./assets/sky/sky_info.json')).json(); } catch (_) { skyInfo = null; }
   await Promise.all([loadMain(), loadSkylights(), loadSky('day')]);
   addLogoText(); addLamps();
-  try { const ex = await import('./extras.js'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
-  applyTime('day'); setMode('orbit'); setView('aerial');
+  try { const ex = await import('./scene_extras.js'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
+  applyTime('day'); setMode('fly'); setView('aerial');
   veil.remove();
   loadSky('dusk'); loadSky('night');                       // 背景預載
 }
@@ -533,9 +571,9 @@ const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   water.material.uniforms.time.value += dt * 0.35;
-  if (mode === 'orbit') orbit.update(); else walkStep(Math.max(dt, 0.016));
+  navStep(Math.max(dt, 0.016));
   for (const k in fresh) { delete fresh[k]; if (releaseLater[k]) { keys[k] = false; delete releaseLater[k]; } }
   for (const f of updaters) f(dt, t);
   composer.render();
 });
-window.__dbg = { scene, camera, renderer, walkables, colliders, sun, water, orbit, setMode, setView, setTime, applyTime, keys, eul, M, TIMES, skyData, bloom, hemi, THREE };
+window.__dbg = { scene, camera, renderer, walkables, solids, sun, water, setMode, setView, setTime, applyTime, lookFrom, keys, eul, M, TIMES, skyData, bloom, hemi, THREE, getMode: () => mode };

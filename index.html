@@ -28,7 +28,40 @@
   #fade { position:fixed; inset:0; background:#000; opacity:0; pointer-events:none; transition:opacity .35s; z-index:3; }
   #walkTip { position:fixed; inset:0; display:none; align-items:center; justify-content:center; pointer-events:none; z-index:4; }
   #walkTip div { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 20px; font-size:16px; text-align:center; line-height:1.7; }
-  @media (max-width:640px){ #sign{display:none} #help{right:16px} #bar h1{font-size:17px} }
+  /* 透視圖對照 */
+  #bar { z-index:2; }
+  #pShade { position:fixed; inset:0; background:#0b1218; opacity:0; pointer-events:none; z-index:1; display:none; }
+  #pImg { position:fixed; top:0; left:50%; height:100vh; transform:translateX(-50%); pointer-events:none; z-index:1; display:none; }
+  #pTool { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:2; display:none; background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; padding:8px 12px 10px; width:min(760px,calc(100vw - 32px)); box-sizing:border-box; }
+  body.persp #pShade, body.persp #pImg { display:block; }
+  body.persp #pTool { display:block; }
+  .pHead { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .pHead b { font-size:15px; color:var(--brand); }
+  .pNote { font-size:12px; }
+  .pThumbs { display:flex; gap:6px; margin-top:6px; overflow-x:auto; padding-bottom:2px; }
+  .pTh { padding:3px; background:#fff; border:2px solid var(--line); border-radius:7px; flex:0 0 auto; width:84px; }
+  .pTh img { display:block; width:100%; height:54px; object-fit:cover; border-radius:4px; }
+  .pTh i { display:block; font-style:normal; font-size:12px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pTh.on { border-color:var(--brand); background:#eaf6fd; }
+  .pMix { display:flex; align-items:center; gap:10px; margin-top:8px; font-size:13px; }
+  .pMix input { flex:1; min-width:0; accent-color:var(--brand); height:22px; }
+  .pMix span, .pBtns button { white-space:nowrap; }
+  .pBtns { display:flex; gap:6px; justify-content:flex-end; margin-top:6px; flex-wrap:wrap; }
+  .pMark { position:fixed; left:0; top:0; z-index:1; display:none; align-items:center; gap:5px; padding:4px 10px 4px 8px; border-radius:16px;
+    background:var(--brand); border:2px solid #fff; color:#fff; font-size:13px; white-space:nowrap; box-shadow:0 1px 6px rgba(0,0,0,.35); }
+  .pMark:hover { background:#0087c4; }
+  body.persp .pMark { visibility:hidden; }
+  body.persp #bar .row:not(#perspRow), body.persp #bar .sub { display:none; }   /* 看透視圖時選單收合，只留透視那一列 */
+  @media (max-width:640px){ #sign{display:none} #help{right:16px} #bar h1{font-size:17px} .pTh{width:70px} .pTh img{height:44px} }
+  @media (min-aspect-ratio:3/2) and (min-width:1000px) {
+    #pTool { left:auto; right:16px; top:16px; bottom:auto; transform:none; width:calc((100vw - 100vh) / 2 - 28px); min-width:190px; max-height:calc(100vh - 90px); overflow-y:auto; }
+    .pThumbs { flex-wrap:wrap; overflow-x:visible; }
+    .pTh { width:calc(50% - 3px); box-sizing:border-box; }
+    .pTh img { height:auto; aspect-ratio:1; }
+    .pBtns { flex-direction:column; } .pMix { gap:6px; }
+    body.persp #bar { max-width:calc((100vw - 100vh) / 2 - 28px); min-width:190px; }
+  }
 </style>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/jsm/" } }
@@ -61,10 +94,11 @@
     <button data-view="lobby">入口大廳</button>
     <button data-view="ocean">海洋廳</button>
   </div>
+  <div class="row" id="perspRow"><span>透視</span></div>
 </div>
 <div id="help"></div>
 <div id="sign">築匠建築師事務所　CTArch<br>設計模擬示意</div>
 <div id="walkTip"><div>W A S D（或方向鍵）移動　Shift 加速<br>按住滑鼠左鍵拖曳轉頭，或用 Q、E 左右轉<br>R 回到起點</div></div>
-<script type="module" src="./app.js?v=20261116-1558"></script>
+<script type="module" src="./app.js?v=20261116-1614"></script>
 </body>
 </html>

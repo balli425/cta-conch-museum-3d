@@ -335,7 +335,7 @@ function buildCity(src, group) {
   }
 }
 async function loadMain() {
-  const g = await new GLTFLoader().loadAsync('./models/conch.glb?v=20261116-1614');
+  const g = await new GLTFLoader().loadAsync('./models/conch.glb?v=20261116-1626');
   const city = [];
   g.scene.updateMatrixWorld(true);
   g.scene.traverse((o) => {
@@ -362,7 +362,7 @@ async function loadMain() {
 
 // 圓天窗：玻璃罩＋收邊環（實例化）
 async function loadSkylights() {
-  const j = await (await fetch('./models/skylights.json?v=20261116-1614')).json();
+  const j = await (await fetch('./models/skylights.json?v=20261116-1626')).json();
   const all = Object.values(j.shells).flat();
   const cap = new THREE.SphereGeometry(1, 20, 6, 0, Math.PI * 2, 0, Math.PI * 0.44);
   cap.translate(0, -Math.cos(Math.PI * 0.44), 0); cap.scale(1 / Math.sin(Math.PI * 0.44), 1 / (1 - Math.cos(Math.PI * 0.44)), 1 / Math.sin(Math.PI * 0.44));   // 底圓半徑 1、高 1
@@ -578,13 +578,13 @@ const ctx = { VIEWS, THREE, scene, camera, renderer, B, QUAY, M, GLOW, glowReg, 
 // ───────── 啟動 ─────────
 async function start() {
   try { skyInfo = await (await fetch('./assets/sky/sky_info.json')).json(); } catch (_) { skyInfo = null; }
-  layout = ctx.layout = await (await fetch('./models/layout.json?v=20261116-1614')).json();
+  layout = ctx.layout = await (await fetch('./models/layout.json?v=20261116-1626')).json();
   await Promise.all([loadMain(), loadSkylights(), loadSky('day')]);
   addLogoText(); addLamps();
-  try { const ex = await import('./scene_main.js?v=20261116-1614'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
+  try { const ex = await import('./scene_main.js?v=20261116-1626'); await ex.init(ctx); } catch (e) { console.warn('動態物件未載入：', e); }
   Object.assign(ctx, { lookFrom, setMode, setTime });
-  try { const ps = await import('./scene_persp.js?v=20261116-1614'); window.__persp = ps.init(ctx); } catch (e) { console.warn('透視圖未載入：', e); }
-  try { const dr = await import('./scene_doors.js?v=20261116-1614'); window.__doors = dr.init(ctx); } catch (e) { console.warn('門扇未載入：', e); }
+  try { const ps = await import('./scene_persp.js?v=20261116-1626'); window.__persp = ps.init(ctx); } catch (e) { console.warn('透視圖未載入：', e); }
+  try { const dr = await import('./scene_doors.js?v=20261116-1626'); window.__doors = dr.init(ctx); } catch (e) { console.warn('門扇未載入：', e); }
   applyTime('day'); setMode('fly'); setView('aerial');
   veil.remove();
   loadSky('dusk'); loadSky('night');                       // 背景預載
@@ -600,4 +600,4 @@ renderer.setAnimationLoop(() => {
   for (const f of updaters) f(dt, t);
   composer.render();
 });
-window.__dbg = { scene, camera, renderer, walkables, solids, sun, water, setMode, setView, setTime, applyTime, lookFrom, keys, eul, M, TIMES, skyData, bloom, hemi, THREE, getMode: () => mode };
+window.__dbg = { scene, camera, renderer, composer, walkables, solids, sun, water, setMode, setView, setTime, applyTime, lookFrom, keys, eul, M, TIMES, skyData, bloom, hemi, THREE, getMode: () => mode };

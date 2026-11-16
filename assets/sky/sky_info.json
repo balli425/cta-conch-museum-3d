@@ -1,0 +1,173 @@
+{
+  "generated": "2026-11-16",
+  "source": "Poly Haven (https://polyhaven.com), CC0",
+  "convention": {
+    "pixel_origin": "影像左上；px、py 為連續座標，像素中心 = 索引 + 0.5；座標以 1k HDR（1024x512）為準",
+    "formula": "u=px/W; v=1-py/H; lat=(v-0.5)*PI; phi=(u-0.5)*2*PI; dir=(cos(lat)*cos(phi), sin(lat), cos(lat)*sin(phi))",
+    "note": "dir 為「從場景指向太陽／月亮」的單位向量（three.js 等距長方對應，Y 向上）。平行光位置可設為 dir * 距離。",
+    "sun_color": "sun_color_linear 為線性色彩、最大色版正規化為 1；sun_color_hex_srgb 為同色的 sRGB 十六進位"
+  },
+  "skies": {
+    "day": {
+      "asset_id": "kloofendal_43d_clear_puresky",
+      "asset_name": "Kloofendal 43d Clear (Pure Sky)",
+      "asset_url": "https://polyhaven.com/a/kloofendal_43d_clear_puresky",
+      "hdr_file": "sky_day_1k.hdr",
+      "hdr_size": [
+        1024,
+        512
+      ],
+      "hdr_bytes": 1184531,
+      "bg_file": "sky_day_bg.jpg",
+      "bg_size": [
+        8192,
+        4096
+      ],
+      "bg_bytes": 2639487,
+      "bg_jpeg_quality": 95,
+      "bg_source": "Poly Haven tonemapped JPG 8192x4096",
+      "bg_processing": "重新壓縮",
+      "light_kind": "太陽",
+      "sun_pixel": [
+        614.81,
+        133.79
+      ],
+      "sun_pixel_image_size": [
+        1024,
+        512
+      ],
+      "sun_region_pixel_count": 3,
+      "sun_dir": [
+        0.59093,
+        0.68155,
+        0.43161
+      ],
+      "sun_elevation_deg": 42.97,
+      "sun_phi_deg": 36.14,
+      "sun_color_linear": [
+        1.0,
+        0.9487,
+        0.8742
+      ],
+      "sun_color_hex_srgb": "#fff9f0",
+      "hdr_peak_luminance": 71667.1,
+      "hdr_upper_hemisphere_mean_luminance": 1.4604,
+      "hdr_upper_hemisphere_sky_luminance_p99_capped": 0.4701,
+      "hdr_upper_hemisphere_mean_color_linear": [
+        1.4112,
+        1.4637,
+        1.572
+      ],
+      "suggested_environment_intensity": 1.0
+    },
+    "dusk": {
+      "asset_id": "qwantani_sunset_puresky",
+      "asset_name": "Qwantani Sunset (Pure Sky)",
+      "asset_url": "https://polyhaven.com/a/qwantani_sunset_puresky",
+      "hdr_file": "sky_dusk_1k.hdr",
+      "hdr_size": [
+        1024,
+        512
+      ],
+      "hdr_bytes": 1061624,
+      "bg_file": "sky_dusk_bg.jpg",
+      "bg_size": [
+        8192,
+        4096
+      ],
+      "bg_bytes": 2667414,
+      "bg_jpeg_quality": 95,
+      "bg_source": "Poly Haven tonemapped JPG 8192x4096",
+      "bg_processing": "重新壓縮",
+      "light_kind": "太陽",
+      "sun_pixel": [
+        614.5,
+        238.5
+      ],
+      "sun_pixel_image_size": [
+        1024,
+        512
+      ],
+      "sun_region_pixel_count": 1,
+      "sun_dir": [
+        0.804,
+        0.10717,
+        0.58489
+      ],
+      "sun_elevation_deg": 6.15,
+      "sun_phi_deg": 36.04,
+      "sun_color_linear": [
+        1.0,
+        0.3465,
+        0.0229
+      ],
+      "sun_color_hex_srgb": "#ff9f2a",
+      "hdr_peak_luminance": 50467.64,
+      "hdr_upper_hemisphere_mean_luminance": 1.6047,
+      "hdr_upper_hemisphere_sky_luminance_p99_capped": 1.0378,
+      "hdr_upper_hemisphere_mean_color_linear": [
+        2.1467,
+        1.474,
+        1.3038
+      ],
+      "suggested_environment_intensity": 0.45
+    },
+    "night": {
+      "asset_id": "qwantani_moonrise_puresky",
+      "asset_name": "Qwantani Moonrise (Pure Sky)",
+      "asset_url": "https://polyhaven.com/a/qwantani_moonrise_puresky",
+      "hdr_file": "sky_night_1k.hdr",
+      "hdr_size": [
+        1024,
+        512
+      ],
+      "hdr_bytes": 1272812,
+      "bg_file": "sky_night_bg.jpg",
+      "bg_size": [
+        8192,
+        4096
+      ],
+      "bg_bytes": 3133364,
+      "bg_jpeg_quality": 93,
+      "bg_source": "Poly Haven tonemapped JPG 8192x4096",
+      "bg_processing": "sRGB 值做 1.7 次方壓暗（保留亮部）＋半階抖動，再重新壓縮",
+      "light_kind": "月亮",
+      "sun_pixel": [
+        614.5,
+        216.5
+      ],
+      "sun_pixel_image_size": [
+        1024,
+        512
+      ],
+      "sun_region_pixel_count": 1,
+      "sun_dir": [
+        0.78502,
+        0.24,
+        0.57109
+      ],
+      "sun_elevation_deg": 13.89,
+      "sun_phi_deg": 36.04,
+      "sun_color_linear": [
+        1.0,
+        0.7776,
+        0.6188
+      ],
+      "sun_color_hex_srgb": "#ffe4ce",
+      "hdr_peak_luminance": 91079.88,
+      "hdr_upper_hemisphere_mean_luminance": 1.7767,
+      "hdr_upper_hemisphere_sky_luminance_p99_capped": 0.5772,
+      "hdr_upper_hemisphere_mean_color_linear": [
+        1.8683,
+        1.7507,
+        1.7644
+      ],
+      "suggested_environment_intensity": 0.06
+    }
+  },
+  "notes": [
+    "suggested_environment_intensity 是依 HDR 上半球亮度估的起始值，未在場景內實測，請依畫面調整。",
+    "HDR 內含未裁切的太陽／月亮（hdr_peak_luminance）；若場景另加平行光，日光會重複計算，可降低環境強度或平行光強度。",
+    "三個 HDR 的曝光基準互不相同（夜晚檔的數值與白天同級），不可直接用同一強度。"
+  ]
+}

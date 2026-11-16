@@ -1,0 +1,481 @@
+{
+ "image": "people_atlas.png",
+ "atlasWidth": 2048,
+ "atlasHeight": 1536,
+ "cellWidth": 256,
+ "cellHeight": 512,
+ "cols": 8,
+ "rows": 3,
+ "count": 24,
+ "anchor": "人物腳底貼齊格子底邊、水平置中；格子原點在左上角，row 由上往下、col 由左往右",
+ "rowMeaning": {
+  "0": "側面／斜側面",
+  "1": "正面",
+  "2": "背面"
+ },
+ "fields": {
+  "fillH": "人物像素高 ÷ 格高（立牌平面高度＝heightM ÷ fillH，才會讓人物本身等於 heightM）",
+  "fillW": "人物像素寬 ÷ 格寬",
+  "px": "人物在圖集上的像素範圍 [x, y, 寬, 高]（原點左上）",
+  "facing": "行走朝向：left／right 為畫面左右（側面可水平翻轉取得反方向），front 朝鏡頭走來，back 背對鏡頭走遠",
+  "heightM": "建議真實身高（公尺，含帽子的估計值）"
+ },
+ "people": [
+  {
+   "id": 0,
+   "row": 0,
+   "col": 0,
+   "category": "adult",
+   "facing": "right",
+   "heightM": 1.66,
+   "fillH": 0.9883,
+   "fillW": 0.9297,
+   "px": [
+    9,
+    6,
+    238,
+    506
+   ],
+   "desc": "銀髮阿公，棒球帽、淺藍襯衫、深藍長褲、後背包",
+   "source": "01_側面_兩排.jpg",
+   "cut": "01_r0c0.png"
+  },
+  {
+   "id": 1,
+   "row": 0,
+   "col": 1,
+   "category": "adult",
+   "facing": "right",
+   "heightM": 1.75,
+   "fillH": 0.9668,
+   "fillW": 0.9688,
+   "px": [
+    260,
+    17,
+    248,
+    495
+   ],
+   "desc": "年輕男生，白 T、卡其短褲、後背包",
+   "source": "01_側面_兩排.jpg",
+   "cut": "01_r0c1.png"
+  },
+  {
+   "id": 2,
+   "row": 0,
+   "col": 2,
+   "category": "child",
+   "facing": "right",
+   "heightM": 1.28,
+   "fillH": 0.873,
+   "fillW": 0.9688,
+   "px": [
+    516,
+    65,
+    248,
+    447
+   ],
+   "desc": "小男孩，棒球帽、黃 T、牛仔短褲、後背包",
+   "source": "01_側面_兩排.jpg",
+   "cut": "01_r0c2.png"
+  },
+  {
+   "id": 3,
+   "row": 0,
+   "col": 3,
+   "category": "adult",
+   "facing": "left",
+   "heightM": 1.58,
+   "fillH": 0.9883,
+   "fillW": 0.8984,
+   "px": [
+    781,
+    6,
+    230,
+    506
+   ],
+   "desc": "媽媽，寬邊草帽、花上衣、牛仔寬褲、托特包",
+   "source": "01_側面_兩排.jpg",
+   "cut": "01_r0c3.png"
+  },
+  {
+   "id": 4,
+   "row": 0,
+   "col": 4,
+   "category": "adult",
+   "facing": "right",
+   "heightM": 1.53,
+   "fillH": 0.9473,
+   "fillW": 0.9688,
+   "px": [
+    1028,
+    27,
+    248,
+    485
+   ],
+   "desc": "銀髮阿嬤，粉紅上衣、黑長褲、手拿收起的傘（斜側偏正面）",
+   "source": "01_側面_兩排.jpg",
+   "cut": "01_r1c0.png"
+  },
+  {
+   "id": 5,
+   "row": 0,
+   "col": 5,
+   "category": "adult",
+   "facing": "right",
+   "heightM": 1.62,
+   "fillH": 0.9883,
+   "fillW": 0.9609,
+   "px": [
+    1285,
+    6,
+    246,
+    506
+   ],
+   "desc": "年輕女生，草帽、碎花洋裝、側背包",
+   "source": "01_側面_兩排.jpg",
+   "cut": "01_r1c1.png"
+  },
+  {
+   "id": 6,
+   "row": 0,
+   "col": 6,
+   "category": "child",
+   "facing": "right",
+   "heightM": 1.2,
+   "fillH": 0.9336,
+   "fillW": 0.9688,
+   "px": [
+    1540,
+    34,
+    248,
+    478
+   ],
+   "desc": "小女孩，馬尾、粉紅上衣短褲、後背包",
+   "source": "01_側面_兩排.jpg",
+   "cut": "01_r1c2.png"
+  },
+  {
+   "id": 7,
+   "row": 0,
+   "col": 7,
+   "category": "adult",
+   "facing": "left",
+   "heightM": 1.72,
+   "fillH": 0.9668,
+   "fillW": 0.9688,
+   "px": [
+    1796,
+    17,
+    248,
+    495
+   ],
+   "desc": "爸爸，灰 T、深藍短褲、後背包、胸前相機、手拿水瓶",
+   "source": "01_側面_兩排.jpg",
+   "cut": "01_r1c3.png"
+  },
+  {
+   "id": 8,
+   "row": 1,
+   "col": 0,
+   "category": "adult",
+   "facing": "front",
+   "heightM": 1.66,
+   "fillH": 0.9883,
+   "fillW": 0.7617,
+   "px": [
+    30,
+    518,
+    195,
+    506
+   ],
+   "desc": "銀髮阿公，漁夫帽、淺藍襯衫、灰短褲、斜背包",
+   "source": "02_正面_兩排.jpg",
+   "cut": "02_r0c0.png"
+  },
+  {
+   "id": 9,
+   "row": 1,
+   "col": 1,
+   "category": "adult",
+   "facing": "front",
+   "heightM": 1.58,
+   "fillH": 0.9883,
+   "fillW": 0.8359,
+   "px": [
+    277,
+    518,
+    214,
+    506
+   ],
+   "desc": "媽媽，遮陽帽、灰色薄外套、酒紅七分褲、斜背包",
+   "source": "02_正面_兩排.jpg",
+   "cut": "02_r0c1.png"
+  },
+  {
+   "id": 10,
+   "row": 1,
+   "col": 2,
+   "category": "child",
+   "facing": "front",
+   "heightM": 1.25,
+   "fillH": 0.9883,
+   "fillW": 0.8594,
+   "px": [
+    530,
+    518,
+    220,
+    506
+   ],
+   "desc": "小女孩，雙馬尾、粉紅 T、牛仔短褲",
+   "source": "02_正面_兩排.jpg",
+   "cut": "02_r0c2.png"
+  },
+  {
+   "id": 11,
+   "row": 1,
+   "col": 3,
+   "category": "adult",
+   "facing": "front",
+   "heightM": 1.62,
+   "fillH": 0.9883,
+   "fillW": 0.6523,
+   "px": [
+    812,
+    518,
+    167,
+    506
+   ],
+   "desc": "年輕女生，長髮、黃色洋裝、後背包",
+   "source": "02_正面_兩排.jpg",
+   "cut": "02_r0c3.png"
+  },
+  {
+   "id": 12,
+   "row": 1,
+   "col": 4,
+   "category": "adult",
+   "facing": "front",
+   "heightM": 1.6,
+   "fillH": 0.9883,
+   "fillW": 0.8008,
+   "px": [
+    1049,
+    518,
+    205,
+    506
+   ],
+   "desc": "女大學生，棒球帽、白 T、牛仔吊帶褲、帆布袋",
+   "source": "02_正面_兩排.jpg",
+   "cut": "02_r1c0.png"
+  },
+  {
+   "id": 13,
+   "row": 1,
+   "col": 5,
+   "category": "child",
+   "facing": "front",
+   "heightM": 1.32,
+   "fillH": 0.9883,
+   "fillW": 0.7461,
+   "px": [
+    1312,
+    518,
+    191,
+    506
+   ],
+   "desc": "小男孩，條紋 T、深藍短褲、後背包",
+   "source": "02_正面_兩排.jpg",
+   "cut": "02_r1c1.png"
+  },
+  {
+   "id": 14,
+   "row": 1,
+   "col": 6,
+   "category": "adult",
+   "facing": "front",
+   "heightM": 1.72,
+   "fillH": 0.9883,
+   "fillW": 0.7227,
+   "px": [
+    1571,
+    518,
+    185,
+    506
+   ],
+   "desc": "爸爸，灰色 Polo 衫、卡其短褲、後背包、涼鞋",
+   "source": "02_正面_兩排.jpg",
+   "cut": "02_r1c2.png"
+  },
+  {
+   "id": 15,
+   "row": 1,
+   "col": 7,
+   "category": "adult",
+   "facing": "front",
+   "heightM": 1.75,
+   "fillH": 0.9883,
+   "fillW": 0.6172,
+   "px": [
+    1841,
+    518,
+    158,
+    506
+   ],
+   "desc": "年輕男生，深藍 T、黑短褲、斜背包",
+   "source": "02_正面_兩排.jpg",
+   "cut": "02_r1c3.png"
+  },
+  {
+   "id": 16,
+   "row": 2,
+   "col": 0,
+   "category": "adult",
+   "facing": "back",
+   "heightM": 1.74,
+   "fillH": 0.9883,
+   "fillW": 0.75,
+   "px": [
+    32,
+    1030,
+    192,
+    506
+   ],
+   "desc": "男大學生，棒球帽、灰藍 T、軍綠短褲、黑後背包",
+   "source": "03_背面_兩排.jpg",
+   "cut": "03_r0c0.png"
+  },
+  {
+   "id": 17,
+   "row": 2,
+   "col": 1,
+   "category": "child",
+   "facing": "back",
+   "heightM": 1.22,
+   "fillH": 0.9883,
+   "fillW": 0.8164,
+   "px": [
+    279,
+    1030,
+    209,
+    506
+   ],
+   "desc": "小女孩，棒球帽馬尾、黃 T、牛仔短褲、粉紅後背包",
+   "source": "03_背面_兩排.jpg",
+   "cut": "03_r0c1.png"
+  },
+  {
+   "id": 18,
+   "row": 2,
+   "col": 2,
+   "category": "adult",
+   "facing": "back",
+   "heightM": 1.72,
+   "fillH": 0.9883,
+   "fillW": 0.7148,
+   "px": [
+    548,
+    1030,
+    183,
+    506
+   ],
+   "desc": "爸爸，深藍 Polo 衫、卡其七分褲、斜背包、涼鞋",
+   "source": "03_背面_兩排.jpg",
+   "cut": "03_r0c2.png"
+  },
+  {
+   "id": 19,
+   "row": 2,
+   "col": 3,
+   "category": "adult",
+   "facing": "back",
+   "heightM": 1.53,
+   "fillH": 0.9883,
+   "fillW": 0.7695,
+   "px": [
+    797,
+    1030,
+    197,
+    506
+   ],
+   "desc": "銀髮阿嬤，酒紅花上衣、灰七分褲、斜背包",
+   "source": "03_背面_兩排.jpg",
+   "cut": "03_r0c3.png"
+  },
+  {
+   "id": 20,
+   "row": 2,
+   "col": 4,
+   "category": "adult",
+   "facing": "back",
+   "heightM": 1.62,
+   "fillH": 0.9883,
+   "fillW": 0.6445,
+   "px": [
+    1069,
+    1030,
+    165,
+    506
+   ],
+   "desc": "年輕女生，草帽、長髮、淺藍洋裝、帆布袋",
+   "source": "03_背面_兩排.jpg",
+   "cut": "03_r1c0.png"
+  },
+  {
+   "id": 21,
+   "row": 2,
+   "col": 5,
+   "category": "child",
+   "facing": "back",
+   "heightM": 1.25,
+   "fillH": 0.9883,
+   "fillW": 0.7969,
+   "px": [
+    1306,
+    1030,
+    204,
+    506
+   ],
+   "desc": "小男孩，漁夫帽、橘 T、牛仔短褲、藍後背包",
+   "source": "03_背面_兩排.jpg",
+   "cut": "03_r1c1.png"
+  },
+  {
+   "id": 22,
+   "row": 2,
+   "col": 6,
+   "category": "adult",
+   "facing": "back",
+   "heightM": 1.58,
+   "fillH": 0.9883,
+   "fillW": 0.7461,
+   "px": [
+    1568,
+    1030,
+    191,
+    506
+   ],
+   "desc": "媽媽，漁夫帽、灰褐上衣、橄欖灰長裙、托特包",
+   "source": "03_背面_兩排.jpg",
+   "cut": "03_r1c2.png"
+  },
+  {
+   "id": 23,
+   "row": 2,
+   "col": 7,
+   "category": "adult",
+   "facing": "back",
+   "heightM": 1.75,
+   "fillH": 0.9883,
+   "fillW": 0.6562,
+   "px": [
+    1836,
+    1030,
+    168,
+    506
+   ],
+   "desc": "年輕男生，卡其 T、卡其短褲、黑後背包",
+   "source": "03_背面_兩排.jpg",
+   "cut": "03_r1c3.png"
+  }
+ ]
+}
